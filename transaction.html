@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Transactions — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+<style>
+  /* Page-unique bits that have no shared component yet */
+  .type-badge { text-transform: uppercase; letter-spacing: 0.04em; }
+  .export-card { border-style: dashed; background: var(--surface-2); }
+  .row-action { color: var(--text-faint); background: none; border: none; cursor: pointer; transition: color var(--transition); text-decoration: none; }
+  .row-action--receipt { color: var(--accent-darker); opacity: 0.85; margin-right: var(--sp-2); vertical-align: middle; }
+  .row-action--receipt:hover { color: var(--accent-darker); opacity: 1; }
+  .row-action--edit { color: var(--accent-darker); opacity: 0.85; margin-right: var(--sp-2); vertical-align: middle; }
+  .row-action--edit:hover { color: var(--accent-darker); opacity: 1; }
+  .row-action--delete { color: var(--danger); opacity: 0.85; vertical-align: middle; }
+  .row-action--delete:hover { color: var(--danger); opacity: 1; }
+</style>
+</head>
+<body>
+<!-- ===== SIDEBAR (identical on every app page) ===== -->
+<aside class="sidebar">
+<div class="sidebar__brand">
+<span class="material-symbols-outlined sidebar__brand-icon">account_balance_wallet</span>
+<span class="sidebar__brand-name">FINWISE</span>
+</div>
+<nav class="sidebar__nav">
+<a class="nav-link" href="dashboard.html"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+<a class="nav-link" href="transaction.html"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+<a class="nav-link" href="add-transaction.html"><span class="material-symbols-outlined">add_circle</span><span>Add Transaction</span></a>
+<a class="nav-link" href="budget.html"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+<a class="nav-link" href="goals.html"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+<div class="sidebar__section">Account</div>
+<a class="nav-link" href="profile.html"><span class="material-symbols-outlined">person</span><span>Profile</span></a>
+<a class="nav-link" href="setting.html"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+<a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
+</nav>
+<div class="sidebar__user">
+<div class="avatar">A</div>
+<div class="sidebar__user-meta">
+<p class="sidebar__user-name">Ahmed</p>
+</div>
+</div>
+</aside>
+
+<!-- ===== MAIN WRAPPER ===== -->
+<div class="app-main">
+<!-- Mobile top bar -->
+<div class="mobile-bar">
+<button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+<span class="mobile-bar__brand">FINWISE</span>
+<span class="material-symbols-outlined">account_circle</span>
+</div>
+<!-- Desktop top bar -->
+<header class="topbar">
+<div class="topbar__search">
+<span class="material-symbols-outlined">search</span>
+<input id="tx-search" type="text" placeholder="Search transactions…" autocomplete="off"/>
+<button class="topbar__search-clear" type="button" aria-label="Clear search" id="tx-search-clear" hidden><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="topbar__actions">
+<button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
+<div class="topbar__divider"></div>
+<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+</div>
+</header>
+
+<main class="page">
+<!-- Page heading -->
+<div class="page-head">
+<div>
+<h1 class="headline">Transactions</h1>
+<p class="muted">Your complete transaction history.</p>
+</div>
+</div>
+
+<!-- Summary Strip -->
+<section class="grid cols-3">
+<div class="card hover-lift row gap-4">
+<div class="tile-icon"><span class="material-symbols-outlined">account_balance</span></div>
+<div>
+<p class="eyebrow">Total Balance</p>
+<p class="mono" style="font-size:20px;font-weight:600">PKR 2,84,350</p>
+</div>
+</div>
+<div class="card hover-lift row gap-4">
+<div class="tile-icon tile-icon--success"><span class="material-symbols-outlined">trending_up</span></div>
+<div>
+<p class="eyebrow">Total Income</p>
+<p class="mono text-success" style="font-size:20px;font-weight:600">+PKR 1,50,000</p>
+</div>
+</div>
+<div class="card hover-lift row gap-4">
+<div class="tile-icon tile-icon--danger"><span class="material-symbols-outlined">trending_down</span></div>
+<div>
+<p class="eyebrow">Total Expenses</p>
+<p class="mono text-danger" style="font-size:20px;font-weight:600">-PKR 87,650</p>
+</div>
+</div>
+</section>
+
+<!-- Filter Bar -->
+<section class="card row wrap gap-4">
+<div class="segmented" id="type-filter">
+<button class="segmented__btn active" data-type="all">All</button>
+<button class="segmented__btn" data-type="income">Income</button>
+<button class="segmented__btn" data-type="expense">Expenses</button>
+</div>
+<div class="row wrap gap-4 grow">
+<select class="select" id="category-filter" style="max-width:220px" aria-label="Filter by category">
+<option value="all">Category: All</option>
+<option value="food">Food</option>
+<option value="services">Services</option>
+<option value="rent">Rent/Utility</option>
+<option value="transport">Transport</option>
+<option value="shopping">Shopping</option>
+</select>
+<div class="input-group" style="max-width:180px">
+<span class="material-symbols-outlined">calendar_today</span>
+<input class="input" type="date" id="date-from" aria-label="From date" value="2023-10-01"/>
+</div>
+<div class="input-group" style="max-width:180px">
+<span class="material-symbols-outlined">calendar_today</span>
+<input class="input" type="date" id="date-to" aria-label="To date" value="2023-10-31"/>
+</div>
+</div>
+<div class="row gap-2">
+<button class="btn btn--ghost" id="reset-filters" type="button">Reset</button>
+<button class="btn btn--primary" id="apply-filters" type="button">Apply Filters</button>
+</div>
+</section>
+
+<!-- Transactions Table -->
+<section class="card" style="padding:0;overflow:hidden">
+<div class="table-wrap" style="border:none;border-radius:0">
+<table class="data">
+<thead>
+<tr>
+<th>Date</th>
+<th>Description</th>
+<th>Category</th>
+<th>Type</th>
+<th class="text-right">Amount</th>
+<th></th>
+</tr>
+</thead>
+<tbody id="tx-body">
+<!-- Row 1 -->
+<tr data-tx data-type="expense" data-category="food" data-date="2023-10-28" data-amount="-2450">
+<td class="mono">Oct 28, 2023</td>
+<td>
+<p style="font-weight:600">KFC Mall of Lahore</p>
+<p class="faint" style="font-size:12px">Card Ending 4242</p>
+</td>
+<td><span class="chip">Food</span></td>
+<td><span class="badge badge--danger type-badge">Expense</span></td>
+<td class="text-right mono text-danger" style="font-weight:600">-PKR 2,450</td>
+<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
+</tr>
+<!-- Row 2 -->
+<tr data-tx data-type="income" data-category="services" data-date="2023-10-26" data-amount="85000">
+<td class="mono">Oct 26, 2023</td>
+<td>
+<p style="font-weight:600">Freelance Payment — Upwork</p>
+<p class="faint" style="font-size:12px">Bank Transfer</p>
+</td>
+<td><span class="chip">Services</span></td>
+<td><span class="badge badge--success type-badge">Income</span></td>
+<td class="text-right mono text-success" style="font-weight:600">+PKR 85,000</td>
+<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
+</tr>
+<!-- Row 3 -->
+<tr data-tx data-type="expense" data-category="rent" data-date="2023-10-24" data-amount="-12800">
+<td class="mono">Oct 24, 2023</td>
+<td>
+<p style="font-weight:600">Sui Northern Gas Bill</p>
+<p class="faint" style="font-size:12px">Auto-pay enabled</p>
+</td>
+<td><span class="chip">Rent/Utility</span></td>
+<td><span class="badge badge--danger type-badge">Expense</span></td>
+<td class="text-right mono text-danger" style="font-weight:600">-PKR 12,800</td>
+<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
+</tr>
+<!-- Row 4 -->
+<tr data-tx data-type="expense" data-category="transport" data-date="2023-10-22" data-amount="-6500">
+<td class="mono">Oct 22, 2023</td>
+<td>
+<p style="font-weight:600">Fuel — Shell Station</p>
+<p class="faint" style="font-size:12px">Card Ending 4242</p>
+</td>
+<td><span class="chip">Transport</span></td>
+<td><span class="badge badge--danger type-badge">Expense</span></td>
+<td class="text-right mono text-danger" style="font-weight:600">-PKR 6,500</td>
+<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
+</tr>
+<!-- Row 5 -->
+<tr data-tx data-type="expense" data-category="shopping" data-date="2023-10-20" data-amount="-14320">
+<td class="mono">Oct 20, 2023</td>
+<td>
+<p style="font-weight:600">Grocery — Al-Fatah</p>
+<p class="faint" style="font-size:12px">Cash Payment</p>
+</td>
+<td><span class="chip">Shopping</span></td>
+<td><span class="badge badge--danger type-badge">Expense</span></td>
+<td class="text-right mono text-danger" style="font-weight:600">-PKR 14,320</td>
+<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="row-between wrap" style="padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--border);background:var(--surface-2)">
+<span class="muted" style="font-size:14px">Showing <span style="font-weight:600;color:var(--text)" id="tx-visible-count">5</span> of <span id="tx-total-count">5</span> transactions</span>
+<div class="pager" id="tx-pagination"></div>
+</div>
+</section>
+
+<!-- Export Bar -->
+<section class="card export-card row-between wrap gap-4">
+<div>
+<h4 class="subtitle">Export Data</h4>
+<p class="muted" style="font-size:14px">Download your transaction history for tax or accounting purposes.</p>
+</div>
+<div class="row wrap gap-4">
+<button class="btn btn--ghost" id="export-csv" type="button"><span class="material-symbols-outlined">description</span> CSV</button>
+<button class="btn btn--ghost" id="export-excel" type="button"><span class="material-symbols-outlined">table_view</span> Excel</button>
+<button class="btn btn--ghost" id="export-pdf" type="button"><span class="material-symbols-outlined">picture_as_pdf</span> PDF</button>
+<div class="topbar__divider"></div>
+<button class="btn btn--primary" id="export-all" type="button"><span class="material-symbols-outlined">ios_share</span> Export All</button>
+</div>
+</section>
+</main>
+
+<!-- ===== FOOTER (identical on every page) ===== -->
+<footer class="footer">
+<div class="footer__inner">
+<div class="footer__brand">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>FINWISE</span>
+</div>
+<nav class="footer__links">
+<a href="dashboard.html">Dashboard</a>
+<a href="transaction.html">Transactions</a>
+<a href="budget.html">Budgets</a>
+<a href="goals.html">Goals</a>
+<a href="profile.html">Profile</a>
+</nav>
+<p class="footer__copy">© 2026 FINWISE. All rights reserved.</p>
+</div>
+</footer>
+</div>
+
+<div class="scrim" aria-hidden="true"></div>
+
+<!-- PDF export libraries (jsPDF + autoTable). Optional: exportPDF falls back to silent print if these fail to load. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Shared store: injects saved transactions before transactions.js caches rows -->
+<script src="assets/js/store.js"></script>
+<!-- Shared numbered pager -->
+<script src="assets/js/pagination.js"></script>
+<!-- Page-specific micro-interactions -->
+<script src="assets/js/transactions.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

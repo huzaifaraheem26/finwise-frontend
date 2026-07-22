@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign Up — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+<style>
+  /* Page-local: signup branding aside + password strength (theme tokens only) */
+  .floating-anim { animation: floating 6s ease-in-out infinite; }
+  @keyframes floating { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
+  .auth-highlights { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); position: relative; z-index: 1; }
+  .auth-highlight { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.22); backdrop-filter: blur(10px); border-radius: var(--r-md); padding: var(--sp-4); color: #fff; }
+  .auth-highlight .material-symbols-outlined { color: #bfe6d5; margin-bottom: var(--sp-1); }
+  .auth-highlight__label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+  .auth-highlight__value { font-family: var(--font-head); font-weight: 700; font-size: 18px; }
+  .social-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+  .social-btn { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: 11px; font-weight: 500; background: var(--surface); transition: background var(--transition), transform var(--transition); }
+  .social-btn:hover { background: var(--surface-2); }
+  .social-btn img, .social-btn svg { width: 18px; height: 18px; }
+  .divider { display: flex; align-items: center; gap: var(--sp-3); color: var(--text-faint); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+  .strength-bars { display: flex; gap: 4px; }
+  .strength-bars span { height: 6px; flex: 1; border-radius: var(--r-full); background: var(--surface-3); transition: background var(--transition); }
+  .pw-toggle { display: grid; place-items: center; background: none; border: none; padding: 0; cursor: pointer; }
+  .pw-toggle .material-symbols-outlined { font-size: 20px; }
+  .pw-toggle:hover { color: var(--text); }
+  /* Fill colour reflects strength level, set on the .strength-bars container. */
+  .strength-bars.is-weak span.on   { background: var(--danger); }
+  .strength-bars.is-medium span.on { background: var(--warning); }
+  .strength-bars.is-strong span.on { background: var(--success); }
+</style>
+</head>
+<body>
+<div class="auth">
+<!-- Branding aside -->
+<aside class="auth__aside">
+<div class="auth__aside-glow" style="width:500px;height:500px;top:-10%;left:-10%;background:rgba(255,255,255,0.5)"></div>
+<div class="auth__aside-glow" style="width:400px;height:400px;bottom:-5%;right:-5%;background:var(--accent-light)"></div>
+<div class="auth__brand">
+<span class="material-symbols-outlined" style="background:rgba(255,255,255,0.14);padding:8px;border-radius:var(--r-md);font-variation-settings:'FILL' 1">account_balance_wallet</span>
+<span style="font-family:var(--font-head);font-size:22px;font-weight:800">FINWISE</span>
+</div>
+<div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center">
+<div class="floating-anim" style="width:100%;max-width:420px;margin-bottom:var(--sp-6)">
+<img style="width:100%;height:auto;filter:drop-shadow(0 20px 40px rgba(0,0,0,0.25))" data-alt="A premium 3D illustration of a professional person in a modern business suit sitting peacefully next to a large, flourishing green money plant. The plant has leaves that resemble currency notes and gold coins growing from its branches. The background is a clean gradient with glassmorphic accents and soft high-key lighting, maintaining a trustworthy and wealthy atmosphere consistent with a modern fintech application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxpdMfR3_TF8xldK84Bt_5rysjwO_0awrss1FNBWfNob1FZ76JefqPYeuFWFciogQt3yEA-kUqDkgyEavGZxv0lVm3w8Yf3itjxMViqiwdX81-Qqj852q6bn9CH-X5FHDj9Xj-JG6_Gse0DKCXRlO9ert-02wIFOMfcbZa5bnqYtyOxfpN-oLRHPCj7I8brtvJlUWTzHzaU7Bhv1tXu0k0lc0nI_vQmvjOW-yhGsBH-3UBHXOUv4CLBn00tuCv4q7vQHlKr3gj-t8"/>
+</div>
+<div style="display:flex;flex-direction:column;gap:var(--sp-3)">
+<h2 class="display" style="color:#fff">Watch Your Wealth Grow.</h2>
+<p style="color:rgba(255,255,255,0.9);font-size:18px;max-width:420px;margin:0 auto">Join 50,000+ investors who use Finwise to automate their savings and maximize returns with precision.</p>
+</div>
+</div>
+<div class="auth-highlights">
+<div class="auth-highlight"><span class="material-symbols-outlined">verified</span><p class="auth-highlight__label">Secured</p><p class="auth-highlight__value">AES-256</p></div>
+<div class="auth-highlight"><span class="material-symbols-outlined">trending_up</span><p class="auth-highlight__label">Growth</p><p class="auth-highlight__value">+12.4%</p></div>
+<div class="auth-highlight"><span class="material-symbols-outlined">language</span><p class="auth-highlight__label">Regional</p><p class="auth-highlight__value">PKR Ready</p></div>
+</div>
+</aside>
+
+<!-- Signup form -->
+<main class="auth__main">
+<div class="auth__card fade-in-section">
+<div style="display:flex;align-items:center;gap:var(--sp-2);justify-content:center;margin-bottom:var(--sp-5)" class="auth-mobile-logo">
+<span class="material-symbols-outlined" style="color:var(--accent);font-variation-settings:'FILL' 1;font-size:28px">account_balance_wallet</span>
+<span style="font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--accent-darker)">FINWISE</span>
+</div>
+<div style="margin-bottom:var(--sp-5)">
+<h2 class="headline">Create Free Account 👋</h2>
+<p class="muted" style="margin-top:var(--sp-1)">Start your journey towards financial freedom today.</p>
+</div>
+<div class="social-row" style="grid-template-columns:1fr;margin-bottom:var(--sp-4)">
+<button type="button" class="social-btn" id="googleSignIn"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
+</div>
+<div class="divider" style="margin-bottom:var(--sp-4)">Or with email</div>
+<form id="signupForm" action="#" onsubmit="event.preventDefault();" style="display:flex;flex-direction:column;gap:var(--sp-4)">
+<div class="field" style="margin-bottom:0">
+<label>Full Name</label>
+<div class="input-group"><span class="material-symbols-outlined">person</span><input id="signupName" class="input" placeholder="Enter Your Name" type="text"/></div>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>Email Address</label>
+<div class="input-group"><span class="material-symbols-outlined">mail</span><input id="signupEmail" class="input" placeholder="Enter Your Email" type="email"/></div>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>Password</label>
+<div class="input-group">
+<span class="material-symbols-outlined">lock</span>
+<input class="input" id="signupPassword" placeholder="••••••••" type="password" style="padding-right:44px"/>
+<button type="button" class="pw-toggle" aria-label="Show password" style="position:absolute;right:var(--sp-4);top:50%;transform:translateY(-50%);color:var(--text-faint)"><span class="material-symbols-outlined">visibility</span></button>
+</div>
+<div style="padding-top:var(--sp-2)">
+<div class="row-between" style="margin-bottom:6px"><span id="strengthLabel" style="font-size:11px;font-weight:700;color:var(--text-faint);text-transform:uppercase">No Strength</span><span id="strengthPct" style="font-size:11px;font-weight:700;color:var(--text-faint)">0%</span></div>
+<div class="strength-bars" id="strengthBars"><span></span><span></span><span></span><span></span><span></span></div>
+</div>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>Confirm Password</label>
+<div class="input-group"><span class="material-symbols-outlined">lock_reset</span><input id="signupConfirmPassword" class="input" placeholder="••••••••" type="password"/></div>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>Default Currency</label>
+<div class="input-group">
+<span class="material-symbols-outlined">payments</span>
+<select id="signupCurrency" class="input select" style="padding-left:44px">
+<option value="PKR">PKR 🇵🇰 - Pakistan Rupee</option>
+<option value="USD">USD 🇺🇸 - US Dollar</option>
+<option value="EUR">EUR 🇪🇺 - Euro</option>
+<option value="GBP">GBP 🇬🇧 - British Pound</option>
+</select>
+</div>
+</div>
+<label class="row gap-3" style="align-items:flex-start;cursor:pointer;margin-bottom:0">
+<input id="signupTerms" type="checkbox" style="width:18px;height:18px;margin-top:2px;accent-color:var(--accent)"/>
+<span class="muted" style="font-size:14px">I agree to the <a href="#" class="text-accent" style="font-weight:600">Terms of Service</a> and <a href="#" class="text-accent" style="font-weight:600">Privacy Policy</a>.</span>
+</label>
+<button class="btn btn--primary btn--lg btn--block" type="submit">Create Account <span class="material-symbols-outlined">arrow_forward</span></button>
+</form>
+<p class="text-center muted" style="margin-top:var(--sp-4)">Already have an account? <a href="login.html" class="text-accent" style="font-weight:700">Sign In</a></p>
+</div>
+</main>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+  // Page-local: password visibility toggle + submit-arrow micro-interaction
+  (function () {
+    document.querySelectorAll('.pw-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = btn.parentElement.querySelector('input');
+        var icon = btn.querySelector('.material-symbols-outlined');
+        if (input.type === 'password') { input.type = 'text'; icon.textContent = 'visibility_off'; }
+        else { input.type = 'password'; icon.textContent = 'visibility'; }
+      });
+    });
+    var btn = document.querySelector('button[type="submit"] .material-symbols-outlined');
+    var submit = document.querySelector('button[type="submit"]');
+    if (submit && btn) {
+      submit.addEventListener('mouseenter', function () { btn.style.transform = 'translateX(4px)'; btn.style.transition = 'transform .2s ease'; });
+      submit.addEventListener('mouseleave', function () { btn.style.transform = 'translateX(0)'; });
+    }
+
+    /* ---- Password strength meter ------------------------------------
+       Empty field  -> 0% / "No Strength", no bars filled.
+       As the user types, score rises through Weak -> Medium -> Strong
+       based on length + character variety (lowercase, uppercase,
+       digits, symbols). Bar count and colour track the score. */
+    var pwInput = document.getElementById('signupPassword');
+    var bars = document.getElementById('strengthBars');
+    var label = document.getElementById('strengthLabel');
+    var pctEl = document.getElementById('strengthPct');
+
+    if (pwInput && bars && label && pctEl) {
+      var cells = bars.querySelectorAll('span'); // 5 bars
+
+      function scorePassword(pw) {
+        if (!pw) return 0;
+        var score = 0;
+        // Length contribution.
+        if (pw.length >= 6) score += 1;
+        if (pw.length >= 10) score += 1;
+        // Character-variety contribution.
+        if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 1;
+        if (/\d/.test(pw)) score += 1;
+        if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+        return Math.min(score, 5); // clamp to the 5 bars
+      }
+
+      // Maps a 0-5 score to { bars, pct, text, colour }.
+      var LEVELS = [
+        { text: 'No Strength', color: 'var(--text-faint)' },
+        { text: 'Weak',        color: 'var(--danger)' },
+        { text: 'Weak',        color: 'var(--danger)' },
+        { text: 'Medium',      color: 'var(--warning)' },
+        { text: 'Strong',      color: 'var(--success)' },
+        { text: 'Strong',      color: 'var(--success)' }
+      ];
+
+      function render() {
+        var pw = pwInput.value || '';
+        var score = scorePassword(pw);
+        var level = LEVELS[score];
+        var pct = Math.round((score / 5) * 100);
+
+        cells.forEach(function (cell, i) {
+          cell.classList.toggle('on', i < score);
+          cell.style.background = i < score ? level.color : '';
+        });
+        label.textContent = level.text;
+        label.style.color = level.color;
+        pctEl.textContent = pct + '%';
+        pctEl.style.color = score ? level.color : 'var(--text-faint)';
+      }
+
+      pwInput.addEventListener('input', render);
+      render(); // initialise to the empty (0%) state
+    }
+
+    /* ---- Continue with Google -------------------------------------- */
+    var googleBtn = document.getElementById('googleSignIn');
+    if (googleBtn) {
+      googleBtn.addEventListener('click', function () {
+        if (typeof window.finwiseGoogleSignIn === 'function') {
+          window.finwiseGoogleSignIn(function (msg) {
+            if (window.showToast) window.showToast(msg, 'danger');
+            else alert(msg);
+          });
+        } else if (window.showToast) {
+          window.showToast('Authentication is not available right now.', 'danger');
+        }
+      });
+    }
+
+    /* ---- Create Account (email + password) -------------------------
+       Validates the form, provisions a Firebase account, then sends the
+       user to the login page to sign in with the credentials they just
+       created. */
+    function notify(msg, type) {
+      if (window.showToast) window.showToast(msg, type);
+      else alert(msg);
+    }
+
+    var form = document.getElementById('signupForm');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        var name = (document.getElementById('signupName').value || '').trim();
+        var email = (document.getElementById('signupEmail').value || '').trim();
+        var password = document.getElementById('signupPassword').value || '';
+        var confirm = document.getElementById('signupConfirmPassword').value || '';
+        var terms = document.getElementById('signupTerms');
+        var submitBtn = form.querySelector('button[type="submit"]');
+
+        // Client-side validation before hitting Firebase.
+        if (!name) { notify('Please enter your full name.', 'danger'); return; }
+        if (!email) { notify('Please enter your email address.', 'danger'); return; }
+        if (password.length < 6) { notify('Password must be at least 6 characters.', 'danger'); return; }
+        if (password !== confirm) { notify('Passwords do not match.', 'danger'); return; }
+        if (terms && !terms.checked) { notify('Please accept the Terms of Service to continue.', 'danger'); return; }
+
+        if (typeof window.finwiseEmailSignUp !== 'function') {
+          notify('Authentication is not available right now.', 'danger');
+          return;
+        }
+
+        if (submitBtn) { submitBtn.disabled = true; }
+        window.finwiseEmailSignUp({
+          name: name,
+          email: email,
+          password: password,
+          onSuccess: function () {
+            // Persist the email so the login page can pre-fill it.
+            try { sessionStorage.setItem('finwise:signupEmail', email); } catch (err) {}
+            notify('Account created! Please sign in.', 'success');
+            // Brief pause so the toast is visible before we navigate.
+            setTimeout(function () { window.location.href = 'login.html'; }, 900);
+          },
+          onError: function (msg) {
+            if (submitBtn) { submitBtn.disabled = false; }
+            notify(msg, 'danger');
+          }
+        });
+      });
+    }
+  })();
+</script>
+</body>
+</html>

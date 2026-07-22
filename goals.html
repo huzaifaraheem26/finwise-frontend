@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Goals — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+<style>
+  /* ---- Page-unique styles for Goals (theme variables only) ---- */
+  .goal-card { display: flex; flex-direction: column; }
+  .goal-icon {
+    width: 56px; height: 56px; border-radius: var(--r-lg);
+    display: grid; place-items: center; font-size: 28px; flex-shrink: 0;
+  }
+  .goal-icon--accent  { background: var(--accent-softer); }
+  .goal-icon--warning { background: var(--warning-bg); }
+  .goal-icon--success { background: var(--success-bg); }
+
+  .ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+  .ring svg { width: 100%; height: 100%; }
+  .ring__track { stroke: var(--surface-3); }
+  .progress-ring-circle {
+    transition: stroke-dashoffset 0.6s ease, stroke-width 0.2s ease;
+    transform: rotate(-90deg); transform-origin: 50% 50%;
+  }
+  .ring__label {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700;
+  }
+
+  .goal-row { display: flex; justify-content: space-between; font-family: var(--font-data); font-size: 14px; }
+
+  .summary-flag {
+    position: absolute; bottom: -16px; right: -16px;
+    font-size: 120px; color: var(--accent-softer);
+    user-select: none; pointer-events: none;
+  }
+
+  .completed-card {
+    display: flex; align-items: center; gap: var(--sp-5);
+    background: var(--success-bg); border: 1px solid var(--success-bg);
+  }
+  .completed-medallion {
+    width: 80px; height: 80px; border-radius: var(--r-lg); flex-shrink: 0;
+    display: grid; place-items: center; font-size: 36px;
+    background: var(--success); color: #fff; box-shadow: var(--shadow-md);
+  }
+  .goal-placeholder {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: var(--sp-2);
+    border: 2px dashed var(--border-strong); border-radius: var(--r-lg);
+    padding: var(--sp-5); background: transparent; box-shadow: none;
+    cursor: pointer; transition: border-color var(--transition);
+  }
+  .goal-placeholder:hover { border-color: var(--accent); }
+
+  /* Icon picker (Create Goal modal) */
+  .goal-icon-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-2); }
+  .goal-icon-opt {
+    aspect-ratio: 1; display: grid; place-items: center;
+    border: 1px solid var(--border-strong); border-radius: var(--r-md);
+    background: var(--surface); color: var(--text-muted);
+    transition: border-color var(--transition), background var(--transition), color var(--transition);
+  }
+  .goal-icon-opt:hover { border-color: var(--accent); background: var(--surface-2); }
+  .goal-icon-opt.active { border-color: var(--accent); background: var(--accent-softer); color: var(--accent-darker); }
+  .goal-icon-opt .material-symbols-outlined { font-size: 22px; }
+  @media (max-width: 480px) { .goal-icon-picker { grid-template-columns: repeat(4, 1fr); } }
+</style>
+</head>
+<body>
+<div class="scrim" aria-hidden="true"></div>
+
+<!-- ===== SIDEBAR (identical on every app page) ===== -->
+<aside class="sidebar">
+<div class="sidebar__brand">
+<span class="material-symbols-outlined sidebar__brand-icon">account_balance_wallet</span>
+<span class="sidebar__brand-name">FINWISE</span>
+</div>
+<nav class="sidebar__nav">
+<a class="nav-link" href="dashboard.html"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+<a class="nav-link" href="transaction.html"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+<a class="nav-link" href="add-transaction.html"><span class="material-symbols-outlined">add_circle</span><span>Add Transaction</span></a>
+<a class="nav-link" href="budget.html"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+<a class="nav-link" href="goals.html"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+<div class="sidebar__section">Account</div>
+<a class="nav-link" href="profile.html"><span class="material-symbols-outlined">person</span><span>Profile</span></a>
+<a class="nav-link" href="setting.html"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+<a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
+</nav>
+<div class="sidebar__user">
+<div class="avatar">A</div>
+<div class="sidebar__user-meta">
+<p class="sidebar__user-name">Ahmed</p>
+</div>
+</div>
+</aside>
+
+<!-- ===== MAIN COLUMN ===== -->
+<div class="app-main">
+<!-- Mobile top bar -->
+<div class="mobile-bar">
+<button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+<span class="mobile-bar__brand">FINWISE</span>
+<span class="material-symbols-outlined">account_circle</span>
+</div>
+<!-- Desktop top bar -->
+<header class="topbar">
+<div class="topbar__search">
+<span class="material-symbols-outlined">search</span>
+<input type="text" placeholder="Search goals or history…"/>
+</div>
+<div class="topbar__actions">
+<button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
+<div class="topbar__divider"></div>
+<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+</div>
+</header>
+
+<main class="page">
+<!-- Page Header -->
+<div class="page-head">
+<div>
+<h2 class="display">🎯 Financial Goals</h2>
+<p>Visualize your dreams and track your progress to financial freedom.</p>
+</div>
+<button class="btn btn--primary" type="button" data-open-goal>
+<span class="material-symbols-outlined">add</span>
+Create New Goal
+</button>
+</div>
+
+<!-- Summary Row -->
+<div class="grid cols-3">
+<div class="card" style="position:relative;overflow:hidden">
+<div style="position:relative;z-index:1">
+<p class="eyebrow">Active Goals</p>
+<h3 class="display text-accent" id="goals-active-count">0</h3>
+</div>
+<span class="material-symbols-outlined summary-flag">flag</span>
+</div>
+<div class="card">
+<p class="eyebrow">Total Saved</p>
+<h3 class="headline mono text-success" id="goals-total-saved">PKR 0</h3>
+</div>
+<div class="card">
+<p class="eyebrow">Remaining Gap</p>
+<h3 class="headline mono text-danger" id="goals-remaining-gap">PKR 0</h3>
+</div>
+</div>
+
+<!-- Goals Grid -->
+<section>
+<div class="row-between mb-4">
+<h4 class="headline">Current Objectives</h4>
+</div>
+<div class="grid cols-3" id="goals-grid">
+<!-- Active goal cards rendered by goals.js -->
+</div>
+<div class="card" id="goals-empty" hidden style="text-align:center;padding:var(--sp-7)">
+<div class="tile-icon" style="margin:0 auto var(--sp-4)"><span class="material-symbols-outlined">ads_click</span></div>
+<h4 class="subtitle mb-4">No active goals</h4>
+<p class="muted mb-4">Create your first goal to start saving toward something meaningful.</p>
+<button class="btn btn--primary" type="button" data-open-goal><span class="material-symbols-outlined">add</span> Create New Goal</button>
+</div>
+</section>
+
+<!-- Completed Goals Section -->
+<section>
+<div class="row gap-2 mb-4">
+<span class="material-symbols-outlined text-success">task_alt</span>
+<h4 class="headline">Completed Goals</h4>
+</div>
+<div class="grid cols-2" id="goals-completed">
+<!-- Completed goal cards rendered by goals.js -->
+</div>
+</section>
+</main>
+
+<!-- ===== FOOTER (identical on every page) ===== -->
+<footer class="footer">
+<div class="footer__inner">
+<div class="footer__brand">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>FINWISE</span>
+</div>
+<nav class="footer__links">
+<a href="dashboard.html">Dashboard</a>
+<a href="transaction.html">Transactions</a>
+<a href="budget.html">Budgets</a>
+<a href="goals.html">Goals</a>
+<a href="profile.html">Profile</a>
+</nav>
+<p class="footer__copy">© 2026 FINWISE. All rights reserved.</p>
+</div>
+</footer>
+</div>
+
+<!-- Floating Action for Mobile / Quick Access -->
+<button class="fab" aria-label="Create New Goal" type="button" data-open-goal>
+<span class="material-symbols-outlined" style="font-size:28px">add</span>
+</button>
+
+<!-- Create Goal modal -->
+<div class="modal-overlay" id="goal-modal">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
+<div class="modal__head">
+<h3 class="title" id="goal-modal-title">Create New Goal</h3>
+<button class="icon-btn" type="button" data-goal-close aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form id="goal-form">
+<div class="modal__body col" style="gap:var(--sp-4)">
+<div class="field" style="margin-bottom:0">
+<label for="goal-name">Goal name</label>
+<input class="input" id="goal-name" type="text" placeholder="e.g. Emergency Fund" autocomplete="off" required/>
+</div>
+<div class="grid cols-2" style="gap:var(--sp-4)">
+<div class="field" style="margin-bottom:0">
+<label for="goal-target">Target amount</label>
+<input class="input" id="goal-target" type="number" min="1" step="any" placeholder="200000" required/>
+</div>
+<div class="field" style="margin-bottom:0">
+<label for="goal-saved">Already saved</label>
+<input class="input" id="goal-saved" type="number" min="0" step="any" placeholder="0"/>
+</div>
+</div>
+<div class="field" style="margin-bottom:0">
+<label for="goal-deadline">Target date <span class="faint">(optional)</span></label>
+<input class="input" id="goal-deadline" type="date"/>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>Icon</label>
+<div class="goal-icon-picker" id="goal-icon-picker"></div>
+</div>
+</div>
+<div class="modal__foot">
+<button class="btn btn--secondary" type="button" data-goal-close>Cancel</button>
+<button class="btn btn--primary" type="submit"><span class="material-symbols-outlined" style="font-size:18px">check</span> Create Goal</button>
+</div>
+</form>
+</div>
+</div>
+
+<!-- Add Money modal -->
+<div class="modal-overlay" id="addmoney-modal">
+<div class="modal modal--sm" role="dialog" aria-modal="true" aria-labelledby="addmoney-title">
+<div class="modal__head">
+<h3 class="title" id="addmoney-title">Add Money</h3>
+<button class="icon-btn" type="button" data-addmoney-close aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form id="addmoney-form">
+<div class="modal__body col" style="gap:var(--sp-4)">
+<p class="muted" style="font-size:14px">Contributing to <span style="font-weight:700;color:var(--text)" id="addmoney-goal-label">goal</span>. This is recorded as an expense and deducted from your balance.</p>
+<div class="field" style="margin-bottom:0">
+<label for="addmoney-amount">Amount</label>
+<input class="input" id="addmoney-amount" type="number" min="1" step="any" placeholder="5000" required/>
+</div>
+</div>
+<div class="modal__foot">
+<button class="btn btn--secondary" type="button" data-addmoney-close>Cancel</button>
+<button class="btn btn--primary" type="submit"><span class="material-symbols-outlined" style="font-size:18px">add_card</span> Add Money</button>
+</div>
+</form>
+</div>
+</div>
+
+<script>
+  // Thicken the circular progress ring on goal-card hover. Delegated so it
+  // works for cards rendered dynamically by goals.js.
+  document.addEventListener('mouseover', function (e) {
+    var card = e.target.closest('.goal-card');
+    if (!card) return;
+    var circle = card.querySelector('.progress-ring-circle');
+    if (circle) circle.style.strokeWidth = '4';
+  });
+  document.addEventListener('mouseout', function (e) {
+    var card = e.target.closest('.goal-card');
+    if (!card) return;
+    var circle = card.querySelector('.progress-ring-circle');
+    if (circle) circle.style.strokeWidth = '3';
+  });
+</script>
+<!-- Shared store (balance/transactions), pager not needed here -->
+<script src="assets/js/store.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/goals.js"></script>
+</body>
+</html>

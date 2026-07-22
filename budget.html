@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Budgets — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+<style>
+  /* Page-unique: month selector + spend sparkline sizing */
+  .month-selector {
+    display: inline-flex; align-items: center;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 4px;
+  }
+  .month-selector__label { padding: 0 var(--sp-5); font-weight: 600; color: var(--accent-darker); }
+  .budget-card__body { display: flex; align-items: flex-end; gap: var(--sp-5); }
+  .budget-card__meter { flex: 1; min-width: 0; }
+  .spark { width: 128px; height: 64px; flex-shrink: 0; }
+  .alert-critical {
+    display: flex; align-items: center; gap: var(--sp-4);
+    background: var(--danger-bg); border: 1px solid var(--danger);
+    border-radius: var(--r-lg); padding: var(--sp-4);
+  }
+  @media (max-width: 560px) {
+    .budget-card__body { flex-direction: column; align-items: stretch; }
+    .spark { width: 100%; }
+  }
+
+  /* ---- New/Edit Budget modal — modern, clean, responsive ---- */
+  #budget-modal .modal { max-width: 460px; }
+  .bmodal__head {
+    display: flex; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-5) var(--sp-5) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+  }
+  .bmodal__badge {
+    width: 44px; height: 44px; border-radius: var(--r-md); flex-shrink: 0;
+    display: grid; place-items: center;
+    background: var(--accent-softer); color: var(--accent-darker);
+  }
+  .bmodal__badge .material-symbols-outlined { font-size: 24px; }
+  .bmodal__titles { flex: 1; min-width: 0; }
+  .bmodal__titles h3 { font-size: 17px; font-weight: 700; }
+  .bmodal__titles p { font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+  .bmodal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+  /* Money input with a PKR prefix */
+  .money-input { position: relative; display: flex; align-items: center; }
+  .money-input__prefix {
+    position: absolute; left: var(--sp-4); font-family: var(--font-data);
+    font-size: 13px; font-weight: 600; color: var(--text-faint); pointer-events: none;
+  }
+  .money-input .input { padding-left: 46px; }
+  @media (max-width: 480px) {
+    .bmodal__grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<!-- ===== SIDEBAR (identical on every app page) ===== -->
+<aside class="sidebar">
+<div class="sidebar__brand">
+<span class="material-symbols-outlined sidebar__brand-icon">account_balance_wallet</span>
+<span class="sidebar__brand-name">FINWISE</span>
+</div>
+<nav class="sidebar__nav">
+<a class="nav-link" href="dashboard.html"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+<a class="nav-link" href="transaction.html"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+<a class="nav-link" href="add-transaction.html"><span class="material-symbols-outlined">add_circle</span><span>Add Transaction</span></a>
+<a class="nav-link" href="budget.html"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+<a class="nav-link" href="goals.html"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+<div class="sidebar__section">Account</div>
+<a class="nav-link" href="profile.html"><span class="material-symbols-outlined">person</span><span>Profile</span></a>
+<a class="nav-link" href="setting.html"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+<a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
+</nav>
+<div class="sidebar__user">
+<div class="avatar">A</div>
+<div class="sidebar__user-meta">
+<p class="sidebar__user-name">Ahmed</p>
+</div>
+</div>
+</aside>
+
+<!-- ===== MAIN COLUMN ===== -->
+<div class="app-main">
+<!-- Mobile top bar -->
+<div class="mobile-bar">
+<button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+<span class="mobile-bar__brand">FINWISE</span>
+<span class="material-symbols-outlined">account_circle</span>
+</div>
+<!-- Desktop top bar -->
+<header class="topbar">
+<div class="topbar__search">
+<span class="material-symbols-outlined">search</span>
+<input type="text" placeholder="Search budgets…"/>
+</div>
+<div class="topbar__actions">
+<button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
+<div class="topbar__divider"></div>
+<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+</div>
+</header>
+
+<main class="page">
+<!-- Header & Month Selector -->
+<div class="page-head">
+<div>
+<h2 class="headline">Budget Planning</h2>
+<p class="muted">Manage and track your monthly spending limits.</p>
+</div>
+<div class="row gap-4 wrap">
+<div class="month-selector">
+<button class="icon-btn" id="budget-prev-month" type="button" aria-label="Previous month"><span class="material-symbols-outlined">chevron_left</span></button>
+<span class="month-selector__label" id="budget-month-label">July 2026</span>
+<button class="icon-btn" id="budget-next-month" type="button" aria-label="Next month"><span class="material-symbols-outlined">chevron_right</span></button>
+</div>
+<button class="btn btn--primary" type="button" data-open-budget><span class="material-symbols-outlined">add</span> New Budget</button>
+</div>
+</div>
+
+<!-- Budget Alerts -->
+<section>
+<div class="row gap-2 mb-4">
+<span class="material-symbols-outlined filled-icon text-danger">notification_important</span>
+<h3 class="title">Budget Alerts</h3>
+<div class="grow" style="height:1px;background:var(--border)"></div>
+</div>
+<div class="col" style="gap:var(--sp-4)" id="budget-alerts">
+<!-- Alert rows are rendered by budgets.js -->
+</div>
+</section>
+
+<!-- Summary Cards -->
+<div class="grid cols-3">
+<!-- Total Budget -->
+<div class="card">
+<div class="row-between">
+<div>
+<p class="eyebrow mb-4">Total Budget</p>
+<h3 class="mono text-accent" style="font-size:20px;font-weight:600" id="bd-total">PKR 0</h3>
+</div>
+<div class="tile-icon"><span class="material-symbols-outlined">account_balance</span></div>
+</div>
+<div class="row gap-2 mt-4" style="font-size:14px">
+<span class="muted">Across all categories</span>
+</div>
+</div>
+<!-- Total Spent -->
+<div class="card">
+<div class="row-between">
+<div>
+<p class="eyebrow mb-4">Total Spent</p>
+<h3 class="mono text-accent" style="font-size:20px;font-weight:600" id="bd-spent">PKR 0</h3>
+</div>
+<div class="tile-icon"><span class="material-symbols-outlined">payments</span></div>
+</div>
+<div class="progress mt-4">
+<div class="progress__fill" id="bd-spent-bar" style="width:0%"></div>
+</div>
+</div>
+<!-- Remaining -->
+<div class="card">
+<div class="row-between">
+<div>
+<p class="eyebrow mb-4">Remaining</p>
+<h3 class="mono text-success" style="font-size:20px;font-weight:600" id="bd-remaining">PKR 0</h3>
+</div>
+<div class="tile-icon tile-icon--success"><span class="material-symbols-outlined">savings</span></div>
+</div>
+<div class="row gap-2 mt-4" style="font-size:14px">
+<span class="muted" id="bd-remaining-pct">0% of total</span>
+</div>
+</div>
+</div>
+
+<!-- Budget Cards Grid -->
+<div class="row-between mb-4 mt-4">
+<h3 class="title">Category Budgets</h3>
+</div>
+<div class="grid cols-2" id="budget-grid">
+<!-- Budget cards rendered by budgets.js -->
+</div>
+<div class="card" id="budget-empty" hidden style="text-align:center;padding:var(--sp-7)">
+<div class="tile-icon" style="margin:0 auto var(--sp-4)"><span class="material-symbols-outlined">savings</span></div>
+<h4 class="subtitle mb-4">No budgets yet</h4>
+<p class="muted mb-4">Create your first budget to start tracking your monthly spending limits.</p>
+<button class="btn btn--primary" type="button" data-open-budget><span class="material-symbols-outlined">add</span> New Budget</button>
+</div>
+<!-- Shown when the selected month has no transaction data (calendar) -->
+<div class="card" id="budget-no-data" hidden style="text-align:center;padding:var(--sp-7)">
+<div class="tile-icon" style="margin:0 auto var(--sp-4)"><span class="material-symbols-outlined">event_busy</span></div>
+<h4 class="subtitle mb-4">No data available for the selected month</h4>
+<p class="muted mb-4" id="budget-no-data-text">There are no transactions recorded for this month yet.</p>
+<button class="btn btn--secondary" type="button" id="budget-back-current"><span class="material-symbols-outlined">today</span> Back to current month</button>
+</div>
+</main>
+
+<!-- ===== FOOTER (identical on every page) ===== -->
+<footer class="footer">
+<div class="footer__inner">
+<div class="footer__brand">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>FINWISE</span>
+</div>
+<nav class="footer__links">
+<a href="dashboard.html">Dashboard</a>
+<a href="transaction.html">Transactions</a>
+<a href="budget.html">Budgets</a>
+<a href="goals.html">Goals</a>
+<a href="profile.html">Profile</a>
+</nav>
+<p class="footer__copy">© 2026 FINWISE. All rights reserved.</p>
+</div>
+</footer>
+</div>
+
+<!-- Quick Add floating action button -->
+<button class="fab" aria-label="Quick add budget" data-open-budget><span class="material-symbols-outlined">add</span></button>
+
+<div class="scrim" aria-hidden="true"></div>
+
+<!-- Budget create / edit modal -->
+<div class="modal-overlay" id="budget-modal">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="budget-modal-title">
+<div class="bmodal__head">
+<span class="bmodal__badge"><span class="material-symbols-outlined">savings</span></span>
+<div class="bmodal__titles">
+<h3 class="title" id="budget-modal-title">New Budget</h3>
+<p>Set a spending limit and track it automatically.</p>
+</div>
+<button class="icon-btn" type="button" data-budget-close aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form id="budget-form">
+<div class="modal__body col" style="gap:var(--sp-4)">
+<div class="field" style="margin-bottom:0">
+<label for="budget-name">Category name</label>
+<input class="input" id="budget-name" type="text" placeholder="e.g. Groceries" autocomplete="off" required/>
+</div>
+<div class="bmodal__grid">
+<div class="field" style="margin-bottom:0">
+<label for="budget-limit">Limit</label>
+<div class="money-input">
+<span class="money-input__prefix" data-currency-symbol>PKR</span>
+<input class="input" id="budget-limit" type="number" min="1" step="any" placeholder="25,000" required/>
+</div>
+</div>
+<div class="field" style="margin-bottom:0">
+<label for="budget-spent">Spent so far</label>
+<div class="money-input">
+<span class="money-input__prefix" data-currency-symbol>PKR</span>
+<input class="input" id="budget-spent" type="number" min="0" step="any" placeholder="0"/>
+</div>
+</div>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>Budget period</label>
+<div class="segmented" id="budget-period" style="width:100%">
+<button class="segmented__btn active grow" type="button" data-period="monthly">Monthly</button>
+<button class="segmented__btn grow" type="button" data-period="yearly">Yearly</button>
+</div>
+</div>
+<div class="recurring-row" style="margin-bottom:0">
+<div class="row gap-3">
+<span class="material-symbols-outlined text-accent">notifications_active</span>
+<div>
+<p style="font-size:14px;font-weight:600">Enable In-App Notifications</p>
+<p class="muted" style="font-size:11px">Alert me with an in-app notification at the threshold and when over budget</p>
+</div>
+</div>
+<label class="switch">
+<input type="checkbox" id="budget-alerts-toggle" checked/>
+<span class="slider"></span>
+</label>
+</div>
+<div class="field" id="budget-threshold-wrap" style="margin-bottom:0">
+<label for="budget-threshold">Alert threshold (% of limit)</label>
+<input class="input" id="budget-threshold" type="number" min="1" max="100" step="1" placeholder="80"/>
+</div>
+</div>
+<div class="modal__foot">
+<button class="btn btn--secondary" type="button" data-budget-close>Cancel</button>
+<button class="btn btn--primary" type="submit"><span class="material-symbols-outlined" style="font-size:18px">check</span> Save Budget</button>
+</div>
+</form>
+</div>
+</div>
+
+<!-- store.js exposes FinwiseCategories.iconFor for consistent budget icons -->
+<script src="assets/js/store.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/budgets.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!-- ============================================================
+     FINWISE — CANONICAL SHARED MARKUP (reference only, not served)
+     Paste these blocks VERBATIM into every APP page (not auth pages).
+     Do NOT set an "active" class by hand — app.js sets it from the URL.
+     ============================================================ -->
+
+<!-- ===== HEAD (identical <head> tail for every page) ===== -->
+<!-- Replace TITLE per page. Keep this exact link/script set. -->
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PAGE TITLE — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+
+<!-- ===== BODY OPENING SHELL ===== -->
+<body>
+<div class="scrim" aria-hidden="true"></div>
+
+<!-- ===== SIDEBAR (IDENTICAL on every app page) ===== -->
+<aside class="sidebar">
+  <div class="sidebar__brand">
+    <span class="material-symbols-outlined sidebar__brand-icon">account_balance_wallet</span>
+    <span class="sidebar__brand-name">FINWISE</span>
+  </div>
+  <nav class="sidebar__nav">
+    <a class="nav-link" href="dashboard.html"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+    <a class="nav-link" href="transaction.html"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+    <a class="nav-link" href="add-transaction.html"><span class="material-symbols-outlined">add_circle</span><span>Add Transaction</span></a>
+    <a class="nav-link" href="budget.html"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+    <a class="nav-link" href="analytics.html"><span class="material-symbols-outlined">analytics</span><span>Analytics</span></a>
+    <a class="nav-link" href="goals.html"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+    <a class="nav-link" href="categories.html"><span class="material-symbols-outlined">category</span><span>Categories</span></a>
+    <div class="sidebar__section">Account</div>
+    <a class="nav-link" href="profile.html"><span class="material-symbols-outlined">person</span><span>Profile</span></a>
+    <a class="nav-link" href="setting.html"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+    <a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
+  </nav>
+  <div class="sidebar__user">
+    <div class="avatar">A</div>
+    <div class="sidebar__user-meta">
+      <p class="sidebar__user-name">Ahmed</p>
+      <p class="sidebar__user-plan">Pro Plan</p>
+    </div>
+  </div>
+</aside>
+
+<!-- ===== MAIN WRAPPER ===== -->
+<div class="app-main">
+  <!-- Mobile top bar (only visible ≤768px via CSS) -->
+  <div class="mobile-bar">
+    <button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+    <span class="mobile-bar__brand">FINWISE</span>
+    <span class="material-symbols-outlined">account_circle</span>
+  </div>
+  <!-- Top bar (desktop) -->
+  <header class="topbar">
+    <div class="topbar__search">
+      <span class="material-symbols-outlined">search</span>
+      <input type="text" placeholder="Search…"/>
+    </div>
+    <div class="topbar__actions">
+      <button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
+      <div class="topbar__divider"></div>
+      <div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- PAGE CONTENT GOES HERE -->
+  </main>
+
+  <!-- ===== FOOTER (IDENTICAL on every page) ===== -->
+  <footer class="footer">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <span class="material-symbols-outlined">account_balance_wallet</span>
+        <span>FINWISE</span>
+      </div>
+      <nav class="footer__links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="transaction.html">Transactions</a>
+        <a href="budget.html">Budgets</a>
+        <a href="goals.html">Goals</a>
+        <a href="profile.html">Profile</a>
+      </nav>
+      <p class="footer__copy">© 2026 FINWISE. All rights reserved.</p>
+    </div>
+  </footer>
+</div>
+
+<script src="assets/js/app.js"></script>
+</body>

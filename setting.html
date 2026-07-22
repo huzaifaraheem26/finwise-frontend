@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+<style>
+  /* Page-scoped: Settings — uses theme.css variables only */
+  .set-head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+  .set-stack { display: flex; flex-direction: column; gap: var(--sp-5); }
+  .set-divider { padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+
+  .set-actions { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .set-action {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; padding: var(--sp-4); text-align: left;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    transition: border-color var(--transition), background var(--transition);
+  }
+  .set-action:hover { border-color: var(--accent); background: var(--accent-tint); }
+  .set-action__label { font-weight: 600; }
+
+  .cat-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--sp-3); background: var(--surface-2);
+    border: 1px solid transparent; border-radius: var(--r-md);
+    cursor: pointer; transition: border-color var(--transition);
+  }
+  .cat-item:hover { border-color: var(--accent-light); }
+
+  /* PDF import dropzone */
+  .dropzone-pdf {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--sp-1); padding: var(--sp-6);
+    border: 2px dashed var(--border-strong); border-radius: var(--r-md);
+    background: var(--surface-2); color: var(--text-muted); cursor: pointer; text-align: center;
+    transition: background var(--transition), border-color var(--transition);
+  }
+  .dropzone-pdf:hover { background: var(--surface-3); border-color: var(--accent); }
+  .dropzone-pdf:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(118,171,174,0.18); }
+
+  .notif-list { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .notif-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); }
+
+  .danger-zone { background: var(--danger-bg); border: 1px solid var(--danger); }
+</style>
+</head>
+<body>
+<!-- ===== SIDEBAR (identical on every app page) ===== -->
+<aside class="sidebar">
+<div class="sidebar__brand">
+<span class="material-symbols-outlined sidebar__brand-icon">account_balance_wallet</span>
+<span class="sidebar__brand-name">FINWISE</span>
+</div>
+<nav class="sidebar__nav">
+<a class="nav-link" href="dashboard.html"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+<a class="nav-link" href="transaction.html"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+<a class="nav-link" href="add-transaction.html"><span class="material-symbols-outlined">add_circle</span><span>Add Transaction</span></a>
+<a class="nav-link" href="budget.html"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+<a class="nav-link" href="goals.html"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+<div class="sidebar__section">Account</div>
+<a class="nav-link" href="profile.html"><span class="material-symbols-outlined">person</span><span>Profile</span></a>
+<a class="nav-link" href="setting.html"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+<a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
+</nav>
+<div class="sidebar__user">
+<div class="avatar">A</div>
+<div class="sidebar__user-meta">
+<p class="sidebar__user-name">Ahmed</p>
+</div>
+</div>
+</aside>
+
+<!-- ===== MAIN COLUMN ===== -->
+<div class="app-main">
+<!-- Mobile top bar -->
+<div class="mobile-bar">
+<button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+<span class="mobile-bar__brand">FINWISE</span>
+<span class="material-symbols-outlined">account_circle</span>
+</div>
+<!-- Desktop top bar -->
+<header class="topbar">
+<div class="topbar__search">
+<span class="material-symbols-outlined">search</span>
+<input type="text" placeholder="Search settings…"/>
+</div>
+<div class="topbar__actions">
+<button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
+<div class="topbar__divider"></div>
+<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+</div>
+</header>
+
+<main class="page">
+<!-- Page heading -->
+<div>
+<h1 class="display">Settings</h1>
+<p class="muted">Manage your account preferences, financial configurations, and data privacy.</p>
+</div>
+
+<!-- Settings Bento Grid -->
+<div class="dash-grid">
+<!-- Import Transactions (PDF) -->
+<section class="card hover-lift dash-grid__span8">
+<div class="set-head">
+<span class="tile-icon tile-icon--success"><span class="material-symbols-outlined">upload_file</span></span>
+<h2 class="title">Import Transactions</h2>
+</div>
+<div class="set-stack">
+<p class="muted" style="font-size:14px">Import transactions from a PDF bank/credit-card statement. We'll scan the text for dated amount rows and add what we can read.</p>
+<div class="dropzone-pdf" id="pdf-dropzone" role="button" tabindex="0" aria-label="Upload a PDF statement">
+<span class="material-symbols-outlined" style="font-size:32px">picture_as_pdf</span>
+<p style="font-weight:600">Click to choose a PDF statement</p>
+<p class="faint" style="font-size:12px">Text-based PDFs only · scanned images can't be read</p>
+</div>
+<input type="file" id="pdf-input" accept="application/pdf,.pdf" hidden/>
+<div id="pdf-status" class="muted" style="font-size:14px" hidden></div>
+</div>
+</section>
+
+<!-- Notifications -->
+<section class="card hover-lift dash-grid__span4">
+<div class="set-head">
+<span class="tile-icon"><span class="material-symbols-outlined">notifications_active</span></span>
+<h2 class="title">Notifications</h2>
+</div>
+<div class="notif-list">
+<div class="notif-row">
+<div>
+<p style="font-weight:500">Budget Alerts</p>
+<p class="muted" style="font-size:14px">Notify when 80% reached</p>
+</div>
+<label class="switch">
+<input checked type="checkbox"/>
+<span class="slider"></span>
+</label>
+</div>
+</div>
+</section>
+</div>
+
+<!-- Danger Zone -->
+<section class="card danger-zone">
+<div class="row-between wrap gap-5">
+<div class="row gap-4" style="align-items:flex-start">
+<span class="tile-icon tile-icon--danger"><span class="material-symbols-outlined">warning</span></span>
+<div>
+<h2 class="title text-danger">Danger Zone</h2>
+<p class="text-danger">Irreversible actions related to your account and financial data.</p>
+</div>
+</div>
+<div class="row wrap gap-3">
+<button class="btn btn--ghost" data-modal-open="clearDataModal" style="border-color:var(--danger);color:var(--danger)">Clear All Data</button>
+<button class="btn btn--danger" data-modal-open="deleteAccountModal">Delete Account</button>
+</div>
+</div>
+</section>
+</main>
+
+<!-- ===== FOOTER (identical on every page) ===== -->
+<footer class="footer">
+<div class="footer__inner">
+<div class="footer__brand">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>FINWISE</span>
+</div>
+<nav class="footer__links">
+<a href="dashboard.html">Dashboard</a>
+<a href="transaction.html">Transactions</a>
+<a href="budget.html">Budgets</a>
+<a href="goals.html">Goals</a>
+<a href="profile.html">Profile</a>
+</nav>
+<p class="footer__copy">© 2026 FINWISE. All rights reserved.</p>
+</div>
+</footer>
+</div>
+
+<!-- Mobile nav scrim -->
+<div class="scrim" aria-hidden="true"></div>
+
+<!-- ===== MODALS ===== -->
+<!-- Clear Data Modal -->
+<div class="modal-overlay" id="clearDataModal">
+<div class="modal" style="max-width:420px">
+<div class="modal__head">
+<h3 class="title">Clear All Data?</h3>
+<button class="icon-btn" data-modal-close aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="modal__body">
+<p class="muted">This will permanently delete all your transactions, budgets, goals, and saved preferences on this device. This action cannot be undone.</p>
+</div>
+<div class="modal__foot">
+<button class="btn btn--ghost" data-modal-close>Cancel</button>
+<button class="btn btn--danger" id="confirmClearBtn">Yes, Clear Data</button>
+</div>
+</div>
+</div>
+
+<!-- Delete Account Modal -->
+<div class="modal-overlay" id="deleteAccountModal">
+<div class="modal" style="max-width:420px">
+<div class="modal__head">
+<h3 class="title text-danger">Delete Account Permanently?</h3>
+<button class="icon-btn" data-modal-close aria-label="Close"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="modal__body">
+<p class="muted">Your subscription will be cancelled and all data removed. Please type <span style="font-weight:700;color:var(--text)">DELETE</span> to confirm.</p>
+<input class="input mono text-center mt-4" id="deleteConfirmInput" placeholder="DELETE" type="text" style="letter-spacing:0.25em"/>
+</div>
+<div class="modal__foot">
+<button class="btn btn--ghost" data-modal-close>Cancel</button>
+<button class="btn btn--danger" id="finalDeleteBtn" disabled>Delete Account</button>
+</div>
+</div>
+</div>
+
+<!-- Page-specific script: PDF import, clear data, delete account -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+  (function () {
+    /* ---- DELETE confirmation gate ---- */
+    var deleteInput = document.getElementById('deleteConfirmInput');
+    var deleteBtn = document.getElementById('finalDeleteBtn');
+    if (deleteInput && deleteBtn) {
+      deleteInput.addEventListener('input', function (e) {
+        deleteBtn.disabled = e.target.value.trim().toUpperCase() !== 'DELETE';
+      });
+    }
+
+    function closeModal(id) { if (window.FinwiseModal) window.FinwiseModal.close(id); }
+
+    /* Remove every FINWISE key from localStorage (transactions, budgets,
+       goals, notifications, currency, seeds, etc.). */
+    function clearAllData() {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('finwise') === 0) keys.push(k);
+      }
+      keys.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+      // Re-arm the seed guards so demo budgets/goals/notifications do NOT
+      // regenerate — a true clear leaves the app empty.
+      try {
+        localStorage.setItem('finwise.budgets.seeded', '1');
+        localStorage.setItem('finwise.goals.seeded', '1');
+        localStorage.setItem('finwise:notifications-seeded', '1');
+      } catch (e) {}
+      // Let any open page re-render to an empty state.
+      try { window.dispatchEvent(new CustomEvent('finwise:change')); } catch (e) {}
+    }
+
+    /* ---- Clear All Data ---- */
+    var clearBtn = document.getElementById('confirmClearBtn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        clearAllData();
+        closeModal('clearDataModal');
+        if (window.showToast) window.showToast('All application data cleared.', 'success');
+      });
+    }
+
+    /* ---- Delete Account ---- */
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', function () {
+        if (deleteBtn.disabled) return;
+        function finish() {
+          clearAllData();
+          if (window.FinwiseUser) window.FinwiseUser.clear();
+          closeModal('deleteAccountModal');
+          if (window.showToast) window.showToast('Account deleted. Signing out…', 'success');
+          setTimeout(function () { window.location.href = 'login.html'; }, 1000);
+        }
+        if (typeof window.finwiseDeleteAccount === 'function') {
+          deleteBtn.disabled = true;
+          window.finwiseDeleteAccount({
+            onSuccess: finish,
+            onError: function (msg) {
+              // Even if the Firebase session isn't live here, honor the intent
+              // locally so the account can't be used on this device, and tell
+              // the user what to do for the server-side deletion.
+              if (window.showToast) window.showToast(msg, 'danger');
+              finish();
+            }
+          });
+        } else {
+          finish();
+        }
+      });
+    }
+
+    /* ---- Import transactions from a PDF (best-effort text parsing) ---- */
+    var dz = document.getElementById('pdf-dropzone');
+    var input = document.getElementById('pdf-input');
+    var statusEl = document.getElementById('pdf-status');
+
+    function setStatus(msg, tone) {
+      if (!statusEl) return;
+      statusEl.hidden = false;
+      statusEl.textContent = msg;
+      statusEl.className = 'mt-2 ' + (tone === 'danger' ? 'text-danger' : tone === 'success' ? 'text-success' : 'muted');
+      statusEl.style.fontSize = '14px';
+    }
+
+    if (dz && input) {
+      dz.addEventListener('click', function () { input.click(); });
+      dz.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+      input.addEventListener('change', function () { var f = this.files[0]; this.value = ''; if (f) importPdf(f); });
+    }
+
+    function importPdf(file) {
+      if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) {
+        setStatus('Please choose a PDF file.', 'danger'); return;
+      }
+      if (typeof pdfjsLib === 'undefined') {
+        setStatus('PDF engine failed to load. Check your connection and try again.', 'danger'); return;
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+      setStatus('Reading “' + file.name + '”…');
+
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data = new Uint8Array(reader.result);
+        pdfjsLib.getDocument({ data: data }).promise.then(function (pdf) {
+          var pages = [];
+          for (var p = 1; p <= pdf.numPages; p++) pages.push(pdf.getPage(p).then(function (pg) { return pg.getTextContent(); }));
+          return Promise.all(pages);
+        }).then(function (contents) {
+          var lines = [];
+          contents.forEach(function (c) {
+            // Reconstruct lines by grouping text items on similar y-positions.
+            var byY = {};
+            c.items.forEach(function (it) {
+              var y = Math.round(it.transform[5]);
+              (byY[y] = byY[y] || []).push(it.str);
+            });
+            Object.keys(byY).forEach(function (y) { lines.push(byY[y].join(' ')); });
+          });
+          var added = parseAndImport(lines);
+          if (added > 0) {
+            setStatus('Imported ' + added + ' transaction' + (added === 1 ? '' : 's') + ' from the PDF.', 'success');
+            if (window.showToast) window.showToast('Imported ' + added + ' transactions.', 'success');
+          } else {
+            setStatus('No transaction rows could be read from this PDF. It may be scanned or use an unusual layout.', 'danger');
+          }
+        }).catch(function (err) {
+          console.error('[pdf-import]', err);
+          setStatus('Could not read that PDF. Please try a different file.', 'danger');
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    /* Parse reconstructed lines for "date … description … amount" rows and add
+       each as a transaction. Heuristic and forgiving: a row needs a parseable
+       date and a trailing amount; sign/keywords decide income vs expense. */
+    function parseAndImport(lines) {
+      if (!window.FinwiseStore || !FinwiseStore.add) return 0;
+      var DATE_RE = /\b(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2})\b/;
+      var AMT_RE = /(-?\(?\s*(?:PKR|Rs\.?|USD|\$|£|€)?\s*[\d,]+(?:\.\d{1,2})?\s*\)?)\s*$/i;
+      var added = 0;
+
+      lines.forEach(function (raw) {
+        var line = (raw || '').replace(/\s+/g, ' ').trim();
+        if (!line) return;
+        var dm = line.match(DATE_RE);
+        var am = line.match(AMT_RE);
+        if (!dm || !am) return;
+
+        var iso = normalizeDate(dm[1]);
+        if (!iso) return;
+
+        var amtToken = am[1];
+        var negative = /^\(|-/.test(amtToken.trim()); // (123) or -123 → expense
+        var num = parseFloat(amtToken.replace(/[^0-9.]/g, ''));
+        if (!num || isNaN(num)) return;
+
+        // Description = the line minus the date and the amount.
+        var desc = line.replace(dm[1], '').replace(am[1], '').replace(/\s+/g, ' ').trim() || 'Imported transaction';
+
+        // Credit/deposit keywords → income; otherwise expense.
+        var isIncome = !negative && /\b(credit|deposit|salary|refund|received|income)\b/i.test(line);
+
+        FinwiseStore.add({
+          type: isIncome ? 'income' : 'expense',
+          amount: num,
+          description: desc.slice(0, 80),
+          category: 'Imported',
+          payment: 'Statement',
+          date: iso,
+          receipt: null
+        });
+        added++;
+      });
+      return added;
+    }
+
+    function normalizeDate(s) {
+      s = s.replace(/\./g, '/').replace(/-/g, '/');
+      var parts = s.split('/');
+      if (parts.length !== 3) return null;
+      var y, m, d;
+      if (parts[0].length === 4) { y = +parts[0]; m = +parts[1]; d = +parts[2]; } // yyyy/mm/dd
+      else { d = +parts[0]; m = +parts[1]; y = +parts[2]; if (y < 100) y += 2000; } // dd/mm/yyyy
+      if (!y || !m || !d || m > 12 || d > 31) return null;
+      return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    }
+  })();
+</script>
+</body>
+</html>

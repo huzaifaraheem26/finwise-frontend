@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+<style>
+  /* ---- Page-scoped components (not in theme.css). All tokens from theme.css ---- */
+  .profile-layout { display: grid; grid-template-columns: 1fr; gap: var(--sp-5); align-items: start; }
+  @media (min-width: 992px) { .profile-layout { grid-template-columns: 4fr 8fr; } }
+
+  /* Profile identity card */
+  .profile-card { display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .avatar-wrap { position: relative; margin-bottom: var(--sp-5); }
+  .avatar-edit {
+    position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; border-radius: var(--r-full);
+    background: var(--accent); color: var(--on-accent); display: grid; place-items: center;
+    box-shadow: var(--shadow-md); transition: background var(--transition);
+  }
+  .avatar-edit:hover { background: var(--accent-dark); }
+  .avatar-edit .material-symbols-outlined { font-size: 18px; }
+
+  /* Vertical list-link rows (change password / deactivate) */
+  .list-link {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+    padding: var(--sp-3); border-radius: var(--r-md); transition: background var(--transition);
+  }
+  .list-link:hover { background: var(--surface-2); }
+  .list-link .lead { display: flex; align-items: center; gap: var(--sp-3); font-weight: 500; font-size: 14px; }
+  .list-link--danger { color: var(--danger); }
+  .list-link .chevron { color: var(--text-faint); transition: transform var(--transition); }
+  .list-link:hover .chevron { transform: translateX(3px); }
+
+  /* Accent "bento" account-age card */
+  .bento-accent {
+    position: relative; overflow: hidden; background: var(--accent); color: var(--on-accent);
+    border-radius: var(--r-lg); padding: var(--sp-5); box-shadow: var(--shadow-accent);
+  }
+  .bento-accent__bg { position: absolute; right: -30px; bottom: -30px; opacity: 0.18; transform: rotate(12deg); }
+  .bento-accent__bg .material-symbols-outlined { font-size: 160px; }
+  .bento-accent__pill {
+    display: inline-flex; align-items: center; gap: var(--sp-2); background: rgba(255,255,255,0.15);
+    padding: 4px 12px; border-radius: var(--r-full); font-size: 13px; backdrop-filter: blur(4px);
+  }
+
+  /* Underline tabs */
+  .ptabs { display: flex; gap: var(--sp-6); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .ptab {
+    display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) 0 var(--sp-4);
+    font-size: 14px; font-weight: 600; color: var(--text-muted);
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color var(--transition), border-color var(--transition);
+  }
+  .ptab:hover { color: var(--accent-darker); }
+  .ptab.active { color: var(--accent-darker); border-bottom-color: var(--accent); }
+  .ptab .material-symbols-outlined { font-size: 18px; }
+
+  /* Theme-mode selector cards */
+  .theme-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
+  .theme-opt {
+    display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+    padding: var(--sp-4); border-radius: var(--r-md); border: 2px solid var(--border);
+    background: var(--surface); transition: border-color var(--transition), background var(--transition);
+  }
+  .theme-opt:hover { border-color: var(--border-strong); }
+  .theme-opt.active { border-color: var(--accent); background: var(--accent-tint); }
+  .theme-opt .material-symbols-outlined { font-size: 30px; color: var(--text-muted); }
+  .theme-opt.active .material-symbols-outlined { color: var(--accent-darker); }
+  .theme-opt .theme-opt__label { font-size: 14px; font-weight: 600; color: var(--text); }
+
+  /* Select with decorative trailing icon */
+  .select-wrap { position: relative; }
+  .select-wrap .select { padding-right: 40px; appearance: none; -webkit-appearance: none; }
+  .select-wrap > .material-symbols-outlined {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    pointer-events: none; color: var(--text-faint); font-size: 20px;
+  }
+
+  /* Press micro-interaction hook (kept from original JS) */
+  .is-pressed { transform: scale(0.95) !important; }
+</style>
+</head>
+<body>
+<!-- ===== SIDEBAR (identical on every app page) ===== -->
+<aside class="sidebar">
+<div class="sidebar__brand">
+<span class="material-symbols-outlined sidebar__brand-icon">account_balance_wallet</span>
+<span class="sidebar__brand-name">FINWISE</span>
+</div>
+<nav class="sidebar__nav">
+<a class="nav-link" href="dashboard.html"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+<a class="nav-link" href="transaction.html"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+<a class="nav-link" href="add-transaction.html"><span class="material-symbols-outlined">add_circle</span><span>Add Transaction</span></a>
+<a class="nav-link" href="budget.html"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+<a class="nav-link" href="goals.html"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+<div class="sidebar__section">Account</div>
+<a class="nav-link" href="profile.html"><span class="material-symbols-outlined">person</span><span>Profile</span></a>
+<a class="nav-link" href="setting.html"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+<a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
+</nav>
+<div class="sidebar__user">
+<div class="avatar">A</div>
+<div class="sidebar__user-meta">
+<p class="sidebar__user-name">Ahmed</p>
+</div>
+</div>
+</aside>
+
+<!-- ===== MAIN COLUMN ===== -->
+<div class="app-main">
+<!-- Mobile top bar -->
+<div class="mobile-bar">
+<button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+<span class="mobile-bar__brand">FINWISE</span>
+<span class="material-symbols-outlined">account_circle</span>
+</div>
+<!-- Desktop top bar -->
+<header class="topbar">
+<div class="topbar__search">
+<span class="material-symbols-outlined">search</span>
+<input type="text" placeholder="Search preferences…"/>
+</div>
+<div class="topbar__actions">
+<button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
+<div class="topbar__divider"></div>
+<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+</div>
+</header>
+
+<main class="page">
+<!-- Page title -->
+<div class="page-head">
+<div>
+<h2 class="headline">Profile Settings</h2>
+<p>Manage your personal information, security preferences, and global application settings.</p>
+</div>
+</div>
+
+<!-- Two-column layout -->
+<div class="profile-layout">
+<!-- LEFT COLUMN -->
+<div class="col" style="gap: var(--sp-5);">
+<!-- Profile identity card -->
+<div class="card profile-card">
+<div class="avatar-wrap">
+<img class="avatar avatar--lg" id="profileAvatar" alt="Profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7J8zErL5FvKVeeGo-dFyT80nMvNuR8GSJ4W16DZW5zzc3JOkQoTd-czOv7bixsw-PAloZ4pBfXgY0MT1Z5pBBJ1DqbwnVvvYCXqjAOgHWTQju6vFdyDoNAepzqL3YIZZCKB7x36o8Q21KicofU_KWRTFT-Glm0FacEiJK7vY-7ukfOP1t7ZiJEhoJI8Ri2dctqWvZULpoozw1NMClLcxydNVfkzOxMIk_p0ytmmcNbBUIM89kF3xw7QkCuIo7QxwkzScGwcG7loA"/>
+<button class="avatar-edit" id="avatarEditBtn" type="button" aria-label="Change photo">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<input type="file" id="avatarInput" accept="image/*" hidden/>
+</div>
+<h3 class="title" data-user-title>Ahmed Khan</h3>
+<div class="badge badge--accent mt-2 mb-4">
+<span class="material-symbols-outlined filled-icon" style="font-size:14px;">verified</span>
+Pro Plan Member
+</div>
+<div style="width:100%; border-top:1px solid var(--border); padding-top: var(--sp-4);">
+<a class="list-link" href="#">
+<span class="lead"><span class="material-symbols-outlined text-accent">lock_reset</span>Change Password</span>
+<span class="material-symbols-outlined chevron">chevron_right</span>
+</a>
+<a class="list-link list-link--danger" href="#">
+<span class="lead"><span class="material-symbols-outlined">delete_forever</span>Deactivate Account</span>
+<span class="material-symbols-outlined chevron">chevron_right</span>
+</a>
+</div>
+</div>
+
+<!-- Account age accent card -->
+<div class="bento-accent">
+<div style="position:relative; z-index:1;">
+<p class="eyebrow" style="color:rgba(255,255,255,0.8);">Account Age</p>
+<p class="headline" style="color:#fff; margin:4px 0 var(--sp-4);">2 Years, 4 Months</p>
+<div class="bento-accent__pill">
+<span class="material-symbols-outlined" style="font-size:16px;">bolt</span>
+Next billing: Oct 12, 2024
+</div>
+</div>
+<div class="bento-accent__bg">
+<span class="material-symbols-outlined">savings</span>
+</div>
+</div>
+</div>
+
+<!-- RIGHT COLUMN -->
+<div class="col" style="gap: var(--sp-5);">
+<!-- Tabs bar -->
+<div class="card">
+<div class="ptabs">
+<button class="ptab active" id="tab-personal" onclick="switchTab('personal')">
+<span class="material-symbols-outlined">badge</span>Personal Info
+</button>
+<button class="ptab" id="tab-security" onclick="switchTab('security')">
+<span class="material-symbols-outlined">security</span>Security
+</button>
+</div>
+</div>
+
+<!-- TAB CONTENT: Personal Info -->
+<div class="tab-content" id="content-personal">
+<div class="card">
+<h4 class="subtitle row gap-2 mb-4">
+<span class="material-symbols-outlined text-accent">account_circle</span>Account Details
+</h4>
+<div class="grid cols-2">
+<div class="field">
+<label>Full Name</label>
+<input class="input" id="profileName" data-user-name type="text" value="Ahmed Khan"/>
+</div>
+<div class="field">
+<label>Email Address</label>
+<input class="input" id="profileEmail" data-user-email type="email" value="ahmed.khan@finwise.io"/>
+</div>
+<div class="field">
+<label>Country</label>
+<div class="select-wrap">
+<select class="select">
+<option selected="">Pakistan 🇵🇰</option>
+<option>United Kingdom 🇬🇧</option>
+<option>United States 🇺🇸</option>
+<option>United Arab Emirates 🇦🇪</option>
+</select>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<div class="field">
+<label>Currency Preference</label>
+<div class="select-wrap">
+<select class="select" data-currency-select>
+<option value="PKR">PKR (Rs.)</option>
+<option value="GBP">GBP (£)</option>
+<option value="USD">USD ($)</option>
+<option value="EUR">EUR (€)</option>
+</select>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<div class="row" style="justify-content:flex-end; margin-top: var(--sp-5);">
+<button class="btn btn--primary btn--lg" id="saveProfileBtn" type="button">Save Changes</button>
+</div>
+</div>
+</div>
+
+<!-- TAB CONTENT: Security -->
+<div class="tab-content hidden" id="content-security">
+<div class="card">
+<h4 class="subtitle row gap-2 mb-4">
+<span class="material-symbols-outlined text-accent">encrypted</span>Security &amp; Access
+</h4>
+<!-- Password update -->
+<div class="col" style="gap: var(--sp-4); border-bottom:1px solid var(--border); padding-bottom: var(--sp-6); margin-bottom: var(--sp-6);">
+<h5 class="subtitle">Update Password</h5>
+<div class="col" style="gap: var(--sp-3); max-width: 420px;">
+<input class="input" id="currentPassword" placeholder="Current Password" type="password"/>
+<input class="input" id="newPassword" placeholder="New Password" type="password"/>
+<input class="input" id="confirmPassword" placeholder="Confirm New Password" type="password"/>
+</div>
+<div>
+<button class="btn btn--secondary" id="updatePasswordBtn" type="button">Update Password</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+<!-- ===== FOOTER (identical on every page) ===== -->
+<footer class="footer">
+<div class="footer__inner">
+<div class="footer__brand">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>FINWISE</span>
+</div>
+<nav class="footer__links">
+<a href="dashboard.html">Dashboard</a>
+<a href="transaction.html">Transactions</a>
+<a href="budget.html">Budgets</a>
+<a href="goals.html">Goals</a>
+<a href="profile.html">Profile</a>
+</nav>
+<p class="footer__copy">© 2026 FINWISE. All rights reserved.</p>
+</div>
+</footer>
+</div>
+
+<div class="scrim" aria-hidden="true"></div>
+
+<!-- Micro-interaction scripts -->
+<script>
+  function switchTab(tabId) {
+    // Hide all tab panels
+    document.querySelectorAll('.tab-content').forEach(function (content) {
+      content.classList.add('hidden');
+    });
+    // Reset all tab buttons
+    ['personal', 'security'].forEach(function (t) {
+      var label = document.getElementById('tab-' + t);
+      if (label) label.classList.remove('active');
+    });
+    // Activate chosen tab
+    var content = document.getElementById('content-' + tabId);
+    if (content) content.classList.remove('hidden');
+    var activeLabel = document.getElementById('tab-' + tabId);
+    if (activeLabel) activeLabel.classList.add('active');
+  }
+
+  // Simple button press effect
+  document.querySelectorAll('button').forEach(function (button) {
+    button.addEventListener('mousedown', function () { button.classList.add('is-pressed'); });
+    button.addEventListener('mouseup', function () { button.classList.remove('is-pressed'); });
+    button.addEventListener('mouseleave', function () { button.classList.remove('is-pressed'); });
+  });
+
+  // Save Changes — persist the edited name across the whole app.
+  document.addEventListener('DOMContentLoaded', function () {
+    var saveBtn = document.getElementById('saveProfileBtn');
+    var nameInput = document.getElementById('profileName');
+    if (!saveBtn || !nameInput) return;
+
+    saveBtn.addEventListener('click', function () {
+      var name = (nameInput.value || '').trim();
+      if (!name) {
+        if (window.showToast) window.showToast('Please enter your name.', 'danger');
+        return;
+      }
+
+      // Update the shared local store immediately so every page reflects it.
+      if (window.FinwiseUser) window.FinwiseUser.set({ name: name });
+
+      // Also push to Firebase so the change survives a re-login. If the SDK
+      // isn't ready or there's no live session, the local update above still
+      // applies and we just confirm success.
+      if (typeof window.finwiseUpdateDisplayName === 'function') {
+        saveBtn.disabled = true; saveBtn.style.opacity = '0.7';
+        window.finwiseUpdateDisplayName({
+          name: name,
+          onSuccess: function () {
+            saveBtn.disabled = false; saveBtn.style.opacity = '';
+            if (window.showToast) window.showToast('Profile updated.', 'success');
+          },
+          onError: function (msg) {
+            saveBtn.disabled = false; saveBtn.style.opacity = '';
+            // Local display already updated; surface the sync note.
+            if (window.showToast) window.showToast(msg, 'warning');
+          }
+        });
+      } else if (window.showToast) {
+        window.showToast('Profile updated.', 'success');
+      }
+    });
+
+    // Update Password — require the current password, then update it in
+    // Firebase Authentication (re-auth + updatePassword under the hood).
+    var pwBtn = document.getElementById('updatePasswordBtn');
+    if (pwBtn) {
+      pwBtn.addEventListener('click', function () {
+        var current = document.getElementById('currentPassword');
+        var next = document.getElementById('newPassword');
+        var confirm = document.getElementById('confirmPassword');
+        var cur = (current && current.value) || '';
+        var nw = (next && next.value) || '';
+        var cf = (confirm && confirm.value) || '';
+
+        if (!cur) {
+          if (window.showToast) window.showToast('Enter your current password first.', 'danger');
+          return;
+        }
+        if (!nw || !cf) {
+          if (window.showToast) window.showToast('Please fill in all password fields.', 'danger');
+          return;
+        }
+        if (nw.length < 6) {
+          if (window.showToast) window.showToast('New password must be at least 6 characters.', 'danger');
+          return;
+        }
+        if (nw !== cf) {
+          if (window.showToast) window.showToast('New passwords do not match.', 'danger');
+          return;
+        }
+
+        function clearFields() {
+          if (current) current.value = '';
+          if (next) next.value = '';
+          if (confirm) confirm.value = '';
+        }
+
+        if (typeof window.finwiseChangePassword === 'function') {
+          pwBtn.disabled = true; pwBtn.style.opacity = '0.7';
+          window.finwiseChangePassword({
+            currentPassword: cur,
+            newPassword: nw,
+            onSuccess: function () {
+              pwBtn.disabled = false; pwBtn.style.opacity = '';
+              clearFields();
+              if (window.FinwiseNotify) {
+                window.FinwiseNotify.add({
+                  icon: 'lock_reset', type: 'accent',
+                  title: 'Password changed',
+                  text: 'Your account password was updated successfully.'
+                });
+              }
+              if (window.showToast) window.showToast('Password updated.', 'success');
+            },
+            onError: function (msg) {
+              pwBtn.disabled = false; pwBtn.style.opacity = '';
+              if (window.showToast) window.showToast(msg, 'danger');
+            }
+          });
+        } else if (window.showToast) {
+          window.showToast('Authentication is not available right now.', 'danger');
+        }
+      });
+    }
+
+    /* ---- Change Password link (identity card) → jump to Security tab ---- */
+    document.querySelectorAll('.list-link').forEach(function (link) {
+      var label = (link.textContent || '').toLowerCase();
+      if (label.indexOf('change password') !== -1) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          switchTab('security');
+          var fld = document.getElementById('currentPassword');
+          if (fld) { fld.focus(); fld.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        });
+      } else if (label.indexOf('deactivate') !== -1) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (typeof window.finwiseConfirm === 'function') {
+            window.finwiseConfirm({
+              title: 'Deactivate account?',
+              message: 'Your account will be deactivated and you will be signed out. You can reactivate by signing in again.',
+              confirmText: 'Deactivate', cancelText: 'Cancel', tone: 'danger', icon: 'delete_forever'
+            }).then(function (ok) {
+              if (!ok) return;
+              if (window.FinwiseUser) window.FinwiseUser.clear();
+              if (window.showToast) window.showToast('Account deactivated. Signing out…', 'success');
+              setTimeout(function () { window.location.href = 'login.html'; }, 900);
+            });
+          }
+        });
+      }
+    });
+
+    /* ---- Avatar upload → persist as data URL, shown app-wide ---- */
+    var avatarBtn = document.getElementById('avatarEditBtn');
+    var avatarInput = document.getElementById('avatarInput');
+    var avatarImg = document.getElementById('profileAvatar');
+    if (avatarBtn && avatarInput) {
+      avatarBtn.addEventListener('click', function () { avatarInput.click(); });
+      avatarInput.addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        this.value = '';
+        if (!file) return;
+        if (!/^image\//.test(file.type)) {
+          if (window.showToast) window.showToast('Please choose an image file.', 'danger');
+          return;
+        }
+        // Downscale to a compact square-ish JPEG so it fits in localStorage
+        // and loads fast in every avatar slot across the app.
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          var img = new Image();
+          img.onload = function () {
+            var MAX = 256;
+            var scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            var cw = Math.max(1, Math.round(img.width * scale));
+            var ch = Math.max(1, Math.round(img.height * scale));
+            var canvas = document.createElement('canvas');
+            canvas.width = cw; canvas.height = ch;
+            canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+            var dataUrl;
+            try { dataUrl = canvas.toDataURL('image/jpeg', 0.85); }
+            catch (e) { dataUrl = ev.target.result; }
+            if (avatarImg) avatarImg.src = dataUrl;
+            if (window.FinwiseUser) window.FinwiseUser.set({ avatar: dataUrl });
+            if (window.showToast) window.showToast('Profile photo updated.', 'success');
+          };
+          img.onerror = function () { if (window.showToast) window.showToast('Could not read that image.', 'danger'); };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  });
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

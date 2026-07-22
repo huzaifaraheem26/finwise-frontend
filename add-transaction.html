@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Add Transaction — FINWISE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link href="assets/css/theme.css" rel="stylesheet"/>
+<style>
+  /* ---- Page-unique styles (vars from theme.css only) ---- */
+  .txn-card {
+    width: 100%; max-width: 680px; margin: 0 auto;
+    border: none;
+    padding: 0; overflow: hidden;
+  }
+  .txn-card__head {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: var(--sp-3);
+    padding: var(--sp-5); background: var(--surface-2);
+  }
+  .txn-form { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-6); }
+
+  /* Amount field */
+  .amount-box {
+    display: flex; align-items: center; gap: var(--sp-4);
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong); border-radius: var(--r-md);
+    padding: var(--sp-4);
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .amount-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(118,171,174,0.18); }
+  .amount-box__prefix { font-family: var(--font-data); font-size: 20px; font-weight: 600; color: var(--accent-darker); opacity: 0.8; }
+  .amount-box__input {
+    flex: 1; background: none; border: none; outline: none;
+    font-family: var(--font-data); font-size: 36px; font-weight: 600; color: var(--accent-darker);
+  }
+  .amount-box__input::placeholder { color: var(--text-faint); }
+
+  /* Category chips */
+  .cat-chip {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--sp-1); padding: var(--sp-3);
+    border: 1px solid var(--border-strong); border-radius: var(--r-md);
+    background: var(--surface); color: var(--text-muted);
+    transition: border-color var(--transition), background var(--transition), color var(--transition), transform var(--transition);
+  }
+  .cat-chip .material-symbols-outlined { font-size: 24px; }
+  .cat-chip span:last-child { font-size: 11px; font-weight: 500; }
+  .cat-chip:hover { border-color: var(--accent); background: var(--surface-2); }
+  .cat-chip:active { transform: scale(0.96); }
+  .cat-chip.active { border-color: var(--accent); background: var(--accent-softer); color: var(--accent-darker); }
+  .cat-chip.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; color: var(--accent-darker); }
+
+  /* Payment pills */
+  .pay-pill {
+    padding: 8px var(--sp-4); border-radius: var(--r-full);
+    border: 1px solid var(--border-strong); background: var(--surface);
+    color: var(--text-muted); font-size: 12px; font-weight: 500;
+    transition: border-color var(--transition), background var(--transition), color var(--transition);
+  }
+  .pay-pill:hover { border-color: var(--accent); }
+  .pay-pill.active { border-color: var(--accent); background: var(--accent-softer); color: var(--accent-darker); }
+
+  /* Attachment dropzone */
+  .dropzone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--sp-1); height: 128px;
+    border: 2px dashed var(--border-strong); border-radius: var(--r-md);
+    background: var(--surface-2); color: var(--text-muted); cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+  }
+  .dropzone:hover { background: var(--surface-3); border-color: var(--accent); }
+  .dropzone:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(118,171,174,0.18); }
+  .dropzone.has-file { border-style: solid; border-color: var(--accent); position: relative; padding: 0; overflow: hidden; background: var(--surface-3); }
+  /* Fit the whole receipt inside the fixed-height box without cropping or
+     spilling out. Absolutely filling the box (rather than width/height:100% on
+     a flex child, which can stretch or overflow) plus object-fit:contain keeps
+     the full image visible and centered, letterboxed as needed. */
+  .dropzone__preview {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: contain; object-position: center;
+    display: block; border-radius: calc(var(--r-md) - 2px);
+  }
+  /* The global `img { display: block }` (theme.css) overrides the UA
+     `[hidden]` rule, so the preview <img> ignores its `hidden` attribute and
+     shows an empty/broken box. Re-assert `hidden` with a higher-specificity,
+     same-origin selector so the JS show/hide toggle actually works. */
+  .dropzone__preview[hidden] { display: none; }
+
+  /* Recurring row */
+  .recurring-row {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+    padding: var(--sp-4); background: var(--surface-2); border-radius: var(--r-md);
+  }
+
+  /* Success button variant (no shared .btn--success in theme.css) */
+  .btn--success { background: var(--success); color: #fff; }
+  .btn--success:hover { background: #278a5c; }
+
+  /* ---- Notes field: clean, modern textarea ----
+     Drops the resize grip ("lines") and gives a soft rounded surface with
+     comfortable padding and a gentle focus ring. */
+  .notes-field {
+    width: 100%; resize: none;
+    background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: var(--r-md);
+    padding: var(--sp-4); font-size: 15px; line-height: 1.5; color: var(--text);
+    font-family: inherit; min-height: 128px;
+    transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+  }
+  .notes-field::placeholder { color: var(--text-faint); }
+  .notes-field:focus {
+    outline: none; background: var(--surface);
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(118, 171, 174, 0.18);
+  }
+
+  .btn--txn { width: 100%; justify-content: center; padding: 15px var(--sp-6); font-size: 16px; }
+</style>
+</head>
+<body>
+<!-- ===== SIDEBAR (identical on every app page) ===== -->
+<aside class="sidebar">
+<div class="sidebar__brand">
+<span class="material-symbols-outlined sidebar__brand-icon">account_balance_wallet</span>
+<span class="sidebar__brand-name">FINWISE</span>
+</div>
+<nav class="sidebar__nav">
+<a class="nav-link" href="dashboard.html"><span class="material-symbols-outlined">dashboard</span><span>Dashboard</span></a>
+<a class="nav-link" href="transaction.html"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+<a class="nav-link" href="add-transaction.html"><span class="material-symbols-outlined">add_circle</span><span>Add Transaction</span></a>
+<a class="nav-link" href="budget.html"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+<a class="nav-link" href="goals.html"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+<div class="sidebar__section">Account</div>
+<a class="nav-link" href="profile.html"><span class="material-symbols-outlined">person</span><span>Profile</span></a>
+<a class="nav-link" href="setting.html"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+<a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
+</nav>
+<div class="sidebar__user">
+<div class="avatar">A</div>
+<div class="sidebar__user-meta">
+<p class="sidebar__user-name">Ahmed</p>
+</div>
+</div>
+</aside>
+
+<!-- ===== MAIN COLUMN ===== -->
+<div class="app-main">
+<!-- Mobile top bar -->
+<div class="mobile-bar">
+<button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
+<span class="mobile-bar__brand">FINWISE</span>
+<span class="material-symbols-outlined">account_circle</span>
+</div>
+<!-- Desktop top bar -->
+<header class="topbar topbar--end">
+<div class="topbar__actions">
+<button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
+<div class="topbar__divider"></div>
+<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+</div>
+</header>
+
+<main class="page">
+<!-- Centered Form Card -->
+<div class="card txn-card" id="transaction-card">
+<!-- Header / Type Toggle -->
+<div class="txn-card__head">
+<h2 class="headline" id="txn-heading">New Transaction</h2>
+<div class="segmented">
+<button class="segmented__btn active active--danger" id="toggle-expense" onclick="setMode('expense')" type="button">
+<span class="material-symbols-outlined" style="font-size:18px">trending_down</span>
+Expense
+</button>
+<button class="segmented__btn" id="toggle-income" onclick="setMode('income')" type="button">
+<span class="material-symbols-outlined" style="font-size:18px">trending_up</span>
+Income
+</button>
+</div>
+</div>
+
+<form class="txn-form" id="txn-form" onsubmit="event.preventDefault();">
+<!-- Amount Field -->
+<div class="field" style="margin-bottom:0">
+<label>Amount</label>
+<div class="amount-box">
+<span class="amount-box__prefix" data-currency-symbol>PKR</span>
+<input class="amount-box__input" id="amount" placeholder="0.00" type="text" inputmode="decimal"/>
+</div>
+</div>
+
+<!-- Description -->
+<div class="field" style="margin-bottom:0">
+<label>Description 📝</label>
+<input class="input" id="description" placeholder="What was this for?" type="text"/>
+</div>
+
+<!-- Category Grid (Chips) -->
+<div class="field" style="margin-bottom:0">
+<label>Category</label>
+<div class="grid cols-4" id="category-grid" style="gap:var(--sp-3)">
+<button class="cat-chip" type="button" data-cat="Food"><span class="material-symbols-outlined">restaurant</span><span>Food</span></button>
+<button class="cat-chip" type="button" data-cat="Housing"><span class="material-symbols-outlined">home</span><span>Housing</span></button>
+<button class="cat-chip" type="button" data-cat="Transport"><span class="material-symbols-outlined">commute</span><span>Transport</span></button>
+<button class="cat-chip" type="button" data-cat="Shopping"><span class="material-symbols-outlined">shopping_bag</span><span>Shopping</span></button>
+<button class="cat-chip" type="button" data-cat="Entertain"><span class="material-symbols-outlined">movie</span><span>Entertain</span></button>
+<button class="cat-chip" type="button" data-cat="Health"><span class="material-symbols-outlined">medical_services</span><span>Health</span></button>
+<button class="cat-chip" type="button" data-cat="Bills"><span class="material-symbols-outlined">payments</span><span>Bills</span></button>
+<button class="cat-chip" type="button" data-cat="Other" data-other><span class="material-symbols-outlined">more_horiz</span><span>Other</span></button>
+</div>
+<!-- Custom category name — shown only when "Other" is selected -->
+<div id="custom-category-wrap" class="mt-3" hidden>
+<input class="input" id="custom-category" type="text" placeholder="Enter custom category name" autocomplete="off"/>
+</div>
+</div>
+
+<!-- Date and Payment Method -->
+<div class="grid cols-2">
+<!-- Date Picker -->
+<div class="field" style="margin-bottom:0">
+<label>Date</label>
+<input class="input" id="date" type="date"/>
+<div class="row gap-2 mt-2">
+<button class="btn btn--secondary btn--sm grow" type="button" data-date-preset="today">Today</button>
+<button class="btn btn--secondary btn--sm grow" type="button" data-date-preset="yesterday">Yesterday</button>
+</div>
+</div>
+<!-- Payment Method Pills -->
+<div class="field" style="margin-bottom:0">
+<label>Payment Method</label>
+<div class="row wrap gap-2" id="payment-methods">
+<button class="pay-pill active" type="button">Cash</button>
+<button class="pay-pill" type="button">Credit Card</button>
+<button class="pay-pill" type="button">Bank Transfer</button>
+</div>
+</div>
+</div>
+
+<!-- Notes & Attachments -->
+<div class="grid cols-2">
+<div class="field" style="margin-bottom:0">
+<label>Notes</label>
+<textarea class="notes-field" placeholder="Add extra details..."></textarea>
+</div>
+<div class="field" style="margin-bottom:0">
+<label>Attachment</label>
+<div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload receipt">
+<img id="receipt-preview" class="dropzone__preview" alt="Receipt preview" hidden/>
+<span class="material-symbols-outlined" id="dropzone-icon">attach_file</span>
+<p style="font-size:12px;font-weight:500" id="dropzone-text">Click to upload receipt</p>
+<p class="faint" style="font-size:10px" id="dropzone-hint">PNG, JPG up to 5MB · camera supported</p>
+</div>
+<!-- Hidden inputs: gallery/file picker + camera capture. On phones,
+     `capture` opens the camera directly; on desktop it's ignored. -->
+<input type="file" id="receipt-input" accept="image/*" hidden/>
+<input type="file" id="receipt-camera" accept="image/*" capture="environment" hidden/>
+<div class="row gap-2 mt-2">
+<button class="btn btn--secondary btn--sm grow" type="button" id="btn-upload"><span class="material-symbols-outlined" style="font-size:16px">upload</span> Upload</button>
+<button class="btn btn--secondary btn--sm grow" type="button" id="btn-camera"><span class="material-symbols-outlined" style="font-size:16px">photo_camera</span> Camera</button>
+<button class="btn btn--secondary btn--sm grow" type="button" id="btn-remove-receipt" hidden><span class="material-symbols-outlined" style="font-size:16px">delete</span> Remove</button>
+</div>
+</div>
+</div>
+
+<!-- Recurring Toggle -->
+<div class="recurring-row">
+<div class="row gap-3">
+<span class="material-symbols-outlined text-accent">autorenew</span>
+<div>
+<p style="font-size:14px;font-weight:600">Recurring Transaction</p>
+<p class="muted" style="font-size:11px">Automatically repeat this every month</p>
+</div>
+</div>
+<label class="switch">
+<input type="checkbox" id="recurring" value=""/>
+<span class="slider"></span>
+</label>
+</div>
+
+<!-- Submit Button -->
+<button class="btn btn--danger btn--txn" id="submit-btn" type="submit">
+Save Transaction
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</form>
+</div>
+</main>
+
+<!-- ===== FOOTER (identical on every page) ===== -->
+<footer class="footer">
+<div class="footer__inner">
+<div class="footer__brand">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span>FINWISE</span>
+</div>
+<nav class="footer__links">
+<a href="dashboard.html">Dashboard</a>
+<a href="transaction.html">Transactions</a>
+<a href="budget.html">Budgets</a>
+<a href="goals.html">Goals</a>
+<a href="profile.html">Profile</a>
+</nav>
+<p class="footer__copy">© 2026 FINWISE. All rights reserved.</p>
+</div>
+</footer>
+</div>
+
+<div class="scrim" aria-hidden="true"></div>
+
+<script>
+  var currentMode = 'expense';
+
+  function setMode(mode) {
+    currentMode = mode;
+    var expenseBtn = document.getElementById('toggle-expense');
+    var incomeBtn = document.getElementById('toggle-income');
+    var submitBtn = document.getElementById('submit-btn');
+
+    if (mode === 'income') {
+      incomeBtn.classList.add('active', 'active--success');
+      expenseBtn.classList.remove('active', 'active--danger');
+      submitBtn.classList.remove('btn--danger');
+      submitBtn.classList.add('btn--success');
+    } else {
+      expenseBtn.classList.add('active', 'active--danger');
+      incomeBtn.classList.remove('active', 'active--success');
+      submitBtn.classList.remove('btn--success');
+      submitBtn.classList.add('btn--danger');
+    }
+  }
+  setMode('expense');
+
+  /* ---- Category selection + custom "Other" input ---- */
+  var customWrap = document.getElementById('custom-category-wrap');
+  var customInput = document.getElementById('custom-category');
+  var categoryGrid = document.getElementById('category-grid');
+
+  // Event delegation so dynamically-added custom chips are handled too.
+  categoryGrid.addEventListener('click', function (e) {
+    var button = e.target.closest('button');
+    if (!button || !categoryGrid.contains(button)) return;
+    categoryGrid.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
+    button.classList.add('active');
+    var isOther = button.hasAttribute('data-other');
+    customWrap.hidden = !isOther;
+    if (isOther) { customInput.focus(); }
+    else { customInput.value = ''; }
+  });
+
+  // NOTE: User-created categories are intentionally NOT shown as chips here.
+  // Creating a category via the "Other" field still saves it (so it appears on
+  // the Categories page), but the Add Transaction grid stays limited to the
+  // fixed built-in chips + "Other". Kept as a no-op so existing calls are safe.
+  function renderCustomChips() {}
+
+  /* ---- Date presets ---- */
+  var dateInput = document.getElementById('date');
+  function ymd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  document.querySelectorAll('[data-date-preset]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var d = new Date();
+      if (this.getAttribute('data-date-preset') === 'yesterday') { d.setDate(d.getDate() - 1); }
+      dateInput.value = ymd(d);
+    });
+  });
+  // Default new transactions to TODAY so they fall inside the current budget
+  // period window (this month / year) and immediately update matching budgets.
+  // The edit flow (initEdit, below) overwrites this with the saved date.
+  if (!dateInput.value) dateInput.value = ymd(new Date());
+
+  /* ---- Payment method pills ---- */
+  var selectedPayment = 'Cash';
+  document.querySelectorAll('#payment-methods .pay-pill').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      document.querySelectorAll('#payment-methods .pay-pill').forEach(function (p) { p.classList.remove('active'); });
+      this.classList.add('active');
+      selectedPayment = this.textContent.trim();
+    });
+  });
+
+  /* ---- Receipt capture (file upload + live device camera) ---- */
+  var dropzone = document.getElementById('dropzone');
+  var fileInput = document.getElementById('receipt-input');
+  var cameraInput = document.getElementById('receipt-camera');
+  var preview = document.getElementById('receipt-preview');
+  var dzIcon = document.getElementById('dropzone-icon');
+  var dzText = document.getElementById('dropzone-text');
+  var dzHint = document.getElementById('dropzone-hint');
+  var removeReceiptBtn = document.getElementById('btn-remove-receipt');
+  var receiptData = null;
+  var MAX_BYTES = 5 * 1024 * 1024;
+  var MAX_DIM = 1000;         // longest edge after downscale
+  var JPEG_QUALITY = 0.72;
+
+  function setReceipt(dataUrl) {
+    receiptData = dataUrl;
+    preview.src = dataUrl;
+    preview.hidden = false;
+    dropzone.classList.add('has-file');
+    dzIcon.hidden = true; dzText.hidden = true; dzHint.hidden = true;
+    if (removeReceiptBtn) removeReceiptBtn.hidden = false;
+  }
+  function clearReceipt() {
+    receiptData = null;
+    preview.hidden = true; preview.src = '';
+    dropzone.classList.remove('has-file');
+    dzIcon.hidden = false; dzText.hidden = false; dzHint.hidden = false;
+    if (removeReceiptBtn) removeReceiptBtn.hidden = true;
+  }
+
+  /* Downscale + re-encode to a compact JPEG data URL. Keeps receipts small
+     enough to persist reliably in localStorage (large originals otherwise
+     blow the storage quota and the save silently fails). Falls back to the
+     original data URL if canvas encoding isn't available. */
+  function compressImage(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Could not read the image')); };
+      reader.onload = function (ev) {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('Could not load the image')); };
+        img.onload = function () {
+          try {
+            var w = img.naturalWidth || img.width;
+            var h = img.naturalHeight || img.height;
+            var scale = Math.min(1, MAX_DIM / Math.max(w, h));
+            var cw = Math.max(1, Math.round(w * scale));
+            var ch = Math.max(1, Math.round(h * scale));
+            var canvas = document.createElement('canvas');
+            canvas.width = cw; canvas.height = ch;
+            canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+            resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+          } catch (err) {
+            resolve(ev.target.result); // encoding failed — keep the original
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function handleReceipt(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      if (window.showToast) showToast('Please choose an image file', 'danger');
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      if (window.showToast) showToast('Image must be under 5MB', 'danger');
+      return;
+    }
+    compressImage(file)
+      .then(setReceipt)
+      .catch(function () { if (window.showToast) showToast('Could not process that image', 'danger'); });
+  }
+
+  // ---- Live camera modal (getUserMedia) ----
+  var cameraStream = null;
+  var cameraModal = null;
+
+  function buildCameraModal() {
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,24,.72);display:flex;align-items:center;justify-content:center;z-index:1000;padding:var(--sp-4)';
+    overlay.innerHTML =
+      '<div class="card" style="max-width:480px;width:100%;padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-4)">' +
+        '<div class="row-between"><h3 class="title">Capture receipt</h3>' +
+        '<button type="button" class="icon-btn" data-cam-cancel aria-label="Close"><span class="material-symbols-outlined">close</span></button></div>' +
+        '<video autoplay playsinline muted style="width:100%;border-radius:var(--r-md);background:#000;aspect-ratio:3/4;object-fit:cover"></video>' +
+        '<div class="row gap-2">' +
+          '<button type="button" class="btn btn--secondary grow" data-cam-cancel>Cancel</button>' +
+          '<button type="button" class="btn btn--primary grow" data-cam-shot><span class="material-symbols-outlined" style="font-size:18px">photo_camera</span> Capture</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeCamera(); });
+    overlay.querySelectorAll('[data-cam-cancel]').forEach(function (b) {
+      b.addEventListener('click', closeCamera);
+    });
+    overlay.querySelector('[data-cam-shot]').addEventListener('click', takeSnapshot);
+    return overlay;
+  }
+
+  function openCamera() {
+    // No camera API (older browser or insecure origin): fall back to the
+    // capture-enabled file input, which opens the camera app on phones.
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      cameraInput.click();
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .then(function (stream) {
+        cameraStream = stream;
+        cameraModal = cameraModal || buildCameraModal();
+        cameraModal.style.display = 'flex';
+        var video = cameraModal.querySelector('video');
+        video.srcObject = stream;
+      })
+      .catch(function () {
+        // Permission denied or no device — fall back to the file picker.
+        if (window.showToast) showToast('Camera unavailable — choose a photo instead', 'danger');
+        cameraInput.click();
+      });
+  }
+
+  function stopStream() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(function (t) { t.stop(); });
+      cameraStream = null;
+    }
+  }
+
+  function closeCamera() {
+    stopStream();
+    if (cameraModal) {
+      var video = cameraModal.querySelector('video');
+      if (video) video.srcObject = null;
+      cameraModal.style.display = 'none';
+    }
+  }
+
+  function takeSnapshot() {
+    if (!cameraModal) return;
+    var video = cameraModal.querySelector('video');
+    var vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) { if (window.showToast) showToast('Camera still loading…', 'danger'); return; }
+    var scale = Math.min(1, MAX_DIM / Math.max(vw, vh));
+    var cw = Math.round(vw * scale), ch = Math.round(vh * scale);
+    var canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    canvas.getContext('2d').drawImage(video, 0, 0, cw, ch);
+    setReceipt(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+    closeCamera();
+    if (window.showToast) showToast('Receipt captured', 'success');
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && cameraStream) closeCamera();
+  });
+
+  // Wiring
+  // Clicking the dropzone opens the file picker to add/replace a receipt —
+  // except a click on the existing preview image opens it full-size (view).
+  dropzone.addEventListener('click', function (e) {
+    if (receiptData && e.target === preview) {
+      if (window.finwiseViewReceipt) window.finwiseViewReceipt(receiptData);
+      return;
+    }
+    fileInput.click();
+  });
+  dropzone.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+  });
+  document.getElementById('btn-upload').addEventListener('click', function (e) { e.stopPropagation(); fileInput.click(); });
+  document.getElementById('btn-camera').addEventListener('click', function (e) { e.stopPropagation(); openCamera(); });
+  if (removeReceiptBtn) removeReceiptBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    clearReceipt();
+    if (window.showToast) showToast('Receipt removed', 'success');
+  });
+  fileInput.addEventListener('change', function () { handleReceipt(this.files[0]); this.value = ''; });
+  cameraInput.addEventListener('change', function () { handleReceipt(this.files[0]); this.value = ''; });
+  // Drag & drop
+  ['dragover', 'dragenter'].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) { e.preventDefault(); dropzone.classList.add('has-file'); });
+  });
+  dropzone.addEventListener('dragleave', function () { if (!receiptData) dropzone.classList.remove('has-file'); });
+  dropzone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleReceipt(e.dataTransfer.files[0]);
+  });
+
+  /* ---- Save transaction -> shared store ---- */
+  function parseAmount(v) {
+    var n = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+  function activeCategory() {
+    var chip = document.querySelector('#category-grid button.active');
+    if (!chip) return null;
+    if (chip.hasAttribute('data-other')) {
+      var name = customInput.value.trim();
+      return name || null;
+    }
+    return chip.getAttribute('data-cat');
+  }
+
+  // Select the chip matching `name`; if none matches, activate "Other" and
+  // put the name in the custom field. Used when loading a transaction to edit.
+  function selectCategory(name) {
+    var target = null;
+    categoryGrid.querySelectorAll('button[data-cat]').forEach(function (b) {
+      if (!b.hasAttribute('data-other') &&
+          (b.getAttribute('data-cat') || '').toLowerCase() === String(name || '').toLowerCase()) {
+        target = b;
+      }
+    });
+    categoryGrid.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
+    if (target) {
+      target.classList.add('active');
+      customWrap.hidden = true;
+      customInput.value = '';
+    } else {
+      var otherBtn = categoryGrid.querySelector('button[data-other]');
+      if (otherBtn) otherBtn.classList.add('active');
+      customWrap.hidden = false;
+      customInput.value = name || '';
+    }
+  }
+
+  // Programmatically select a payment pill by label (used when editing).
+  function selectPayment(name) {
+    var pills = document.querySelectorAll('#payment-methods .pay-pill');
+    var matched = false;
+    pills.forEach(function (p) {
+      var on = p.textContent.trim().toLowerCase() === String(name || '').toLowerCase();
+      p.classList.toggle('active', on);
+      if (on) matched = true;
+    });
+    if (!matched && pills[0]) { pills[0].classList.add('active'); selectedPayment = pills[0].textContent.trim(); }
+    else selectedPayment = name;
+  }
+
+  var editingTxnId = null;
+  var submitBtn = document.getElementById('submit-btn');
+
+  document.getElementById('txn-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var amount = parseAmount(document.getElementById('amount').value);
+    var description = document.getElementById('description').value.trim();
+    var category = activeCategory();
+
+    if (!amount) { if (window.showToast) showToast('Enter an amount', 'danger'); return; }
+    if (!category) {
+      if (window.showToast) showToast(document.querySelector('#category-grid button[data-other].active') ? 'Enter a custom category name' : 'Pick a category', 'danger');
+      return;
+    }
+
+    var payload = {
+      type: currentMode,
+      amount: amount,
+      description: description || category,
+      category: category,
+      payment: selectedPayment,
+      date: dateInput.value || ymd(new Date()),
+      recurring: document.getElementById('recurring').checked,
+      receipt: receiptData || null
+    };
+
+    var saved;
+    if (editingTxnId) {
+      saved = FinwiseStore.update(editingTxnId, payload);
+    } else {
+      saved = FinwiseStore.add(payload);
+    }
+
+    // add()/update() return null when persistence fails (e.g. storage full).
+    // Keep the form intact so the user doesn't lose their entry.
+    if (!saved) {
+      if (window.showToast) showToast('Could not save — storage is full. Try removing the receipt.', 'danger');
+      return;
+    }
+
+    // Auto-create the category when the user typed a custom "Other" name, so
+    // it appears on the Categories page. (It is intentionally not added to
+    // this page's category grid, which stays limited to the built-in chips.)
+    var otherActive = !!categoryGrid.querySelector('button[data-other].active');
+    if (otherActive && window.FinwiseCategories) {
+      FinwiseCategories.add({ name: category, type: currentMode });
+    }
+
+    if (editingTxnId) {
+      if (window.showToast) showToast('Transaction updated', 'success');
+      // Return to the transactions list so the change is visible in context.
+      setTimeout(function () { window.location.href = 'transaction.html'; }, 400);
+      return;
+    }
+
+    if (window.showToast) showToast('Transaction saved', 'success');
+
+    // Reset the form for the next entry.
+    this.reset();
+    clearReceipt();
+    customWrap.hidden = true;
+    document.querySelectorAll('#category-grid button').forEach(function (b) { b.classList.remove('active'); });
+    setMode('expense');
+    document.querySelectorAll('#payment-methods .pay-pill').forEach(function (p, i) { p.classList.toggle('active', i === 0); });
+    selectedPayment = 'Cash';
+  });
+
+  /* ---- Edit mode: ?edit=<id> loads an existing transaction ----
+     Deferred to DOMContentLoaded so store.js (loaded below) has defined
+     window.FinwiseStore before we read the transaction. */
+  document.addEventListener('DOMContentLoaded', function initEdit() {
+    var params = new URLSearchParams(window.location.search);
+    var id = params.get('edit');
+    if (!id || !window.FinwiseStore || !FinwiseStore.get) return;
+    var t = FinwiseStore.get(id);
+    if (!t) { if (window.showToast) showToast('That transaction no longer exists', 'danger'); return; }
+
+    editingTxnId = t.id;
+    var heading = document.getElementById('txn-heading');
+    if (heading) heading.textContent = 'Edit Transaction';
+    if (submitBtn) submitBtn.childNodes[0].nodeValue = 'Update Transaction ';
+
+    setMode(t.type === 'income' ? 'income' : 'expense');
+    document.getElementById('amount').value = t.amount != null ? t.amount : '';
+    document.getElementById('description').value = t.description || '';
+    selectCategory(t.category);
+    if (t.date) dateInput.value = t.date;
+    selectPayment(t.payment || 'Cash');
+    document.getElementById('recurring').checked = !!t.recurring;
+    if (t.receipt) setReceipt(t.receipt); else clearReceipt();
+  });
+</script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
