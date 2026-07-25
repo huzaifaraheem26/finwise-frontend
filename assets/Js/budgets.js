@@ -465,7 +465,9 @@
         titleEl.textContent = b ? "Edit Budget" : "New Budget";
         nameInput.value = b ? b.name : "";
         limitInput.value = b ? b.limit : "";
-        spentInput.value = b ? b.spent : "";
+        // "Spent so far" now lives as a tagged seed transaction, not b.spent.
+        // Show its current amount when editing so the field round-trips.
+        spentInput.value = b ? seedAmountFor(b.id) : "";
         setPeriod(b ? b.period : "monthly");
         if (alertsToggle) alertsToggle.checked = b ? b.alertsEnabled !== false : true;
         if (thresholdInput) thresholdInput.value = b ? thresholdOf(b) : DEFAULT_THRESHOLD;
@@ -496,6 +498,48 @@
       });
       if (alertsToggle) alertsToggle.addEventListener("change", syncThresholdVisibility);
 
+      /* Back a budget's manual "Spent so far" value with a real expense
+         transaction so it deducts from the Current Balance (which is computed
+         purely from transactions). The transaction is tagged budgetSeed:<id>
+         and categorised as the budget name, so it counts toward spentFor()
+         exactly once (b.spent is kept at 0 to avoid double-counting) and the
+         Dashboard / Budget / summary cards all update live via finwise:change.
+         Editing the amount updates the same seed txn; clearing it removes it. */
+      function seedAmountFor(budgetId) {
+        if (!window.FinwiseStore || !FinwiseStore.getAll) return "";
+        var amt = "";
+        FinwiseStore.getAll().forEach(function (t) {
+          if (String(t.budgetSeed) === String(budgetId)) amt = Math.abs(Number(t.amount) || 0);
+        });
+        return amt;
+      }
+      function reconcileBudgetSeed(budgetId, budgetName, amount) {
+        if (!window.FinwiseStore || !FinwiseStore.getAll) return;
+        amount = Math.abs(Number(amount) || 0);
+        var existing = null;
+        FinwiseStore.getAll().forEach(function (t) {
+          if (String(t.budgetSeed) === String(budgetId)) existing = t;
+        });
+        if (amount > 0) {
+          if (existing) {
+            FinwiseStore.update(existing.id, {
+              amount: amount, category: budgetName,
+              description: "Budget: " + budgetName
+            });
+          } else {
+            FinwiseStore.add({
+              type: "expense", amount: amount,
+              description: "Budget: " + budgetName,
+              category: budgetName, payment: "Transfer",
+              date: new Date().toISOString().slice(0, 10),
+              receipt: null, budgetSeed: budgetId
+            });
+          }
+        } else if (existing) {
+          FinwiseStore.remove(existing.id);
+        }
+      }
+
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var name = nameInput.value.trim();
@@ -511,13 +555,19 @@
           toast("Threshold must be between 1 and 100%", "danger"); return;
         }
 
-        var patch = { name: name, limit: limit, spent: spent, period: selectedPeriod,
+        // spent is kept at 0 on the budget record; the "Spent so far" amount
+        // lives as a real expense transaction (reconcileBudgetSeed) so it hits
+        // the Current Balance. spentFor() then reflects it via that txn.
+        var patch = { name: name, limit: limit, spent: 0, period: selectedPeriod,
                       alertsEnabled: alertsOn, threshold: threshold };
         if (editingId) {
           Budgets.update(editingId, patch);
+          reconcileBudgetSeed(editingId, name, spent);
           toast('Budget "' + name + '" updated', "success");
         } else {
-          if (!Budgets.add(patch)) { toast("Could not save the budget", "danger"); return; }
+          var created = Budgets.add(patch);
+          if (!created) { toast("Could not save the budget", "danger"); return; }
+          reconcileBudgetSeed(created.id, name, spent);
           toast('Budget "' + name + '" created', "success");
         }
         closeModal();
@@ -718,9 +768,9 @@
               title: "Delete budget?",
               message: "“" + name + "” will be permanently removed. This can’t be undone.",
               confirmText: "Delete", cancelText: "Cancel", tone: "danger", icon: "delete"
-            }).then(function (ok) { if (ok && Budgets.remove(id)) toast('Budget "' + name + '" deleted', "success"); });
+            }).then(function (ok) { if (ok && Budgets.remove(id)) { reconcileBudgetSeed(id, name, 0); toast('Budget "' + name + '" deleted', "success"); } });
           } else if (window.confirm("Delete this budget?")) {
-            if (Budgets.remove(id)) toast("Budget deleted", "success");
+            if (Budgets.remove(id)) { reconcileBudgetSeed(id, name, 0); toast("Budget deleted", "success"); }
           }
         }
       });
