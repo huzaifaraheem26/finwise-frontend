@@ -639,64 +639,69 @@ Save Transaction
   var editingTxnId = null;
   var submitBtn = document.getElementById('submit-btn');
 
- document.getElementById('txn-form').addEventListener('submit', async function (e) {
-  e.preventDefault();
-  console.log('✅ Form submitted!');
+  document.getElementById('txn-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var amount = parseAmount(document.getElementById('amount').value);
+    var description = document.getElementById('description').value.trim();
+    var category = activeCategory();
 
-  var amount = parseAmount(document.getElementById('amount').value);
-  var description = document.getElementById('description').value.trim();
-  var category = activeCategory();
-
-  if (!amount) { alert('Enter an amount'); return; }
-  if (!category) { alert('Pick a category'); return; }
-
-  try {
-    const user = firebase.auth().currentUser;
-    if (!user) {
-      alert('Please login first');
-      window.location.href = 'login.html';
+    if (!amount) { if (window.showToast) showToast('Enter an amount', 'danger'); return; }
+    if (!category) {
+      if (window.showToast) showToast(document.querySelector('#category-grid button[data-other].active') ? 'Enter a custom category name' : 'Pick a category', 'danger');
       return;
     }
 
-    const token = await user.getIdToken();
-    console.log('✅ Token:', token);
-
-    const payload = {
+    var payload = {
       type: currentMode,
       amount: amount,
       description: description || category,
       category: category,
       payment: selectedPayment,
       date: dateInput.value || ymd(new Date()),
-      recurring: document.getElementById('recurring').checked
+      recurring: document.getElementById('recurring').checked,
+      receipt: receiptData || null
     };
 
-    console.log('📤 Sending:', payload);
-
-    const response = await fetch('https://finwise-backend-aywx.onrender.com/api/transactions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-    console.log('✅ Response:', data);
-
-    if (data.success) {
-      alert('✅ Transaction saved!');
-      window.location.href = 'dashboard.html';
+    var saved;
+    if (editingTxnId) {
+      saved = FinwiseStore.update(editingTxnId, payload);
     } else {
-      alert('❌ Error: ' + (data.message || 'Failed to save'));
+      saved = FinwiseStore.add(payload);
     }
 
-  } catch (error) {
-    console.error('❌ Error:', error);
-    alert('❌ ' + error.message);
-  }
-});
+    // add()/update() return null when persistence fails (e.g. storage full).
+    // Keep the form intact so the user doesn't lose their entry.
+    if (!saved) {
+      if (window.showToast) showToast('Could not save — storage is full. Try removing the receipt.', 'danger');
+      return;
+    }
+
+    // Auto-create the category when the user typed a custom "Other" name, so
+    // it appears on the Categories page. (It is intentionally not added to
+    // this page's category grid, which stays limited to the built-in chips.)
+    var otherActive = !!categoryGrid.querySelector('button[data-other].active');
+    if (otherActive && window.FinwiseCategories) {
+      FinwiseCategories.add({ name: category, type: currentMode });
+    }
+
+    if (editingTxnId) {
+      if (window.showToast) showToast('Transaction updated', 'success');
+      // Return to the transactions list so the change is visible in context.
+      setTimeout(function () { window.location.href = 'transaction.html'; }, 400);
+      return;
+    }
+
+    if (window.showToast) showToast('Transaction saved', 'success');
+
+    // Reset the form for the next entry.
+    this.reset();
+    clearReceipt();
+    customWrap.hidden = true;
+    document.querySelectorAll('#category-grid button').forEach(function (b) { b.classList.remove('active'); });
+    setMode('expense');
+    document.querySelectorAll('#payment-methods .pay-pill').forEach(function (p, i) { p.classList.toggle('active', i === 0); });
+    selectedPayment = 'Cash';
+  });
 
   /* ---- Edit mode: ?edit=<id> loads an existing transaction ----
      Deferred to DOMContentLoaded so store.js (loaded below) has defined
