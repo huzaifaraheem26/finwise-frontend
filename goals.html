@@ -263,15 +263,15 @@ Create New Goal
 </div>
 <form id="addmoney-form">
 <div class="modal__body col" style="gap:var(--sp-4)">
-<p class="muted" style="font-size:14px">Contributing to <span style="font-weight:700;color:var(--text)" id="addmoney-goal-label">goal</span>. This is recorded as an expense and deducted from your balance.</p>
+<p class="muted" id="addmoney-desc" style="font-size:14px">Contributing to <span style="font-weight:700;color:var(--text)" id="addmoney-goal-label">goal</span>. This is recorded as an expense and deducted from your balance.</p>
 <div class="field" style="margin-bottom:0">
-<label for="addmoney-amount">Amount</label>
-<input class="input" id="addmoney-amount" type="number" min="1" step="any" placeholder="5000" required/>
+<label for="addmoney-amount" id="addmoney-amount-label">Amount</label>
+<input class="input" id="addmoney-amount" type="number" min="0" step="any" placeholder="5000" required/>
 </div>
 </div>
 <div class="modal__foot">
 <button class="btn btn--secondary" type="button" data-addmoney-close>Cancel</button>
-<button class="btn btn--primary" type="submit"><span class="material-symbols-outlined" style="font-size:18px">add_card</span> Add Money</button>
+<button class="btn btn--primary" type="submit" id="addmoney-submit"><span class="material-symbols-outlined" style="font-size:18px">add_card</span> Add Money</button>
 </div>
 </form>
 </div>

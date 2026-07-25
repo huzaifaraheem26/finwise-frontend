@@ -136,6 +136,44 @@
       }
       return { goal: found, justCompleted: justCompleted };
     },
+    /* Correct a goal's contributed (saved) amount to an exact value. Used when
+       the user accidentally added the wrong sum. The difference from the old
+       value is recorded as a compensating transaction so the available balance
+       stays consistent: reducing the saved amount refunds the difference back
+       to the balance (income), increasing it deducts more (expense). Progress,
+       remaining gap and completion state all recalculate from the new value.
+       Returns { goal, delta, justCompleted, justReverted } or null on failure. */
+    setSaved: function (id, newSaved) {
+      newSaved = Math.abs(Number(newSaved) || 0);
+      if (isNaN(newSaved)) return null;
+      var list = read(), found = null, delta = 0, justCompleted = false, justReverted = false;
+      list.forEach(function (g) {
+        if (String(g.id) !== String(id)) return;
+        var wasComplete = isComplete(g);
+        delta = newSaved - g.saved;      // + = added more, - = corrected down
+        g.saved = newSaved;
+        var nowComplete = isComplete(g);
+        if (!wasComplete && nowComplete) { g.completedAt = Date.now(); justCompleted = true; }
+        else if (wasComplete && !nowComplete) { g.completedAt = null; justReverted = true; }
+        found = g;
+      });
+      if (!found) return null;
+      if (!write(list)) return null;
+
+      // Keep the available balance in sync with the correction.
+      if (delta !== 0 && window.FinwiseStore && FinwiseStore.add) {
+        FinwiseStore.add({
+          type: delta > 0 ? "expense" : "income",
+          amount: Math.abs(delta),
+          description: "Goal adjustment: " + found.name,
+          category: "Savings",
+          payment: "Transfer",
+          date: new Date().toISOString().slice(0, 10),
+          receipt: null
+        });
+      }
+      return { goal: found, delta: delta, justCompleted: justCompleted, justReverted: justReverted };
+    },
     remove: function (id) {
       var list = read();
       var next = list.filter(function (g) { return String(g.id) !== String(id); });
@@ -239,23 +277,58 @@
       closeModal();
     });
 
-    /* ---- Modal: add money ---- */
+    /* ---- Modal: add money / edit contributed amount ----
+       One modal, two modes:
+         • "add"  — contribute a new amount on top of the current saved value.
+         • "edit" — correct the total contributed (saved) amount to an exact
+                    value; the balance is reconciled by Goals.setSaved. */
     var addModal = document.getElementById("addmoney-modal");
     var addForm = document.getElementById("addmoney-form");
     var addAmountInput = document.getElementById("addmoney-amount");
     var addGoalLabel = document.getElementById("addmoney-goal-label");
+    var addTitle = document.getElementById("addmoney-title");
+    var addDesc = document.getElementById("addmoney-desc");
+    var addAmountLabel = document.getElementById("addmoney-amount-label");
+    var addSubmit = document.getElementById("addmoney-submit");
     var addGoalId = null;
+    var addMode = "add"; // "add" | "edit"
 
     function openAddMoney(id) {
       var g = Goals.get(id);
       if (!g || !addModal) return;
       addGoalId = id;
-      if (addGoalLabel) addGoalLabel.textContent = g.name;
+      addMode = "add";
+      if (addTitle) addTitle.textContent = "Add Money";
+      if (addDesc) {
+        addDesc.innerHTML = 'Contributing to <span style="font-weight:700;color:var(--text)" id="addmoney-goal-label">' +
+          escapeHtml(g.name) + '</span>. This is recorded as an expense and deducted from your balance.';
+      }
+      if (addAmountLabel) addAmountLabel.textContent = "Amount";
+      if (addSubmit) addSubmit.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">add_card</span> Add Money';
       if (addForm) addForm.reset();
       addModal.classList.add("open");
       setTimeout(function () { if (addAmountInput) addAmountInput.focus(); }, 50);
     }
-    function closeAddMoney() { if (addModal) addModal.classList.remove("open"); addGoalId = null; }
+
+    function openEditSaved(id) {
+      var g = Goals.get(id);
+      if (!g || !addModal) return;
+      addGoalId = id;
+      addMode = "edit";
+      if (addTitle) addTitle.textContent = "Edit Contributed Amount";
+      if (addDesc) {
+        addDesc.innerHTML = 'Correct the total saved for <span style="font-weight:700;color:var(--text)">' +
+          escapeHtml(g.name) + '</span>. The difference is reconciled with your balance and progress updates automatically.';
+      }
+      if (addAmountLabel) addAmountLabel.textContent = "Total contributed amount";
+      if (addSubmit) addSubmit.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">check</span> Save Changes';
+      if (addForm) addForm.reset();
+      if (addAmountInput) addAmountInput.value = g.saved;
+      addModal.classList.add("open");
+      setTimeout(function () { if (addAmountInput) { addAmountInput.focus(); addAmountInput.select(); } }, 50);
+    }
+
+    function closeAddMoney() { if (addModal) addModal.classList.remove("open"); addGoalId = null; addMode = "add"; }
 
     if (addModal) addModal.addEventListener("click", function (e) {
       if (e.target === addModal || e.target.closest("[data-addmoney-close]")) closeAddMoney();
@@ -265,6 +338,36 @@
     });
     if (addForm) addForm.addEventListener("submit", function (e) {
       e.preventDefault();
+
+      if (addMode === "edit") {
+        // Empty is allowed → 0 (correct an accidental contribution to nothing).
+        var raw = addAmountInput.value;
+        if (raw !== "" && Number(raw) < 0) { toast("Enter a valid amount", "danger"); return; }
+        var newSaved = raw === "" ? 0 : Number(raw);
+        if (isNaN(newSaved)) { toast("Enter a valid amount", "danger"); return; }
+        var eres = Goals.setSaved(addGoalId, newSaved);
+        if (!eres) { toast("Could not update the amount", "danger"); return; }
+        if (eres.delta === 0) {
+          toast("No change to " + eres.goal.name, "info");
+        } else if (eres.delta < 0) {
+          toast(money(Math.abs(eres.delta)) + " refunded — " + eres.goal.name + " updated", "success");
+        } else {
+          toast(money(eres.delta) + " added — " + eres.goal.name + " updated", "success");
+        }
+        if (eres.justCompleted) {
+          if (window.FinwiseNotify) {
+            window.FinwiseNotify.add({
+              icon: "emoji_events", type: "success",
+              title: "Goal completed! 🎉",
+              text: 'You reached your "' + eres.goal.name + '" target of ' + money(eres.goal.target) + ".",
+            }, { key: "goal-complete:" + eres.goal.id });
+          }
+          toast('🎉 Goal "' + eres.goal.name + '" completed!', "success");
+        }
+        closeAddMoney();
+        return;
+      }
+
       var amount = Number(addAmountInput.value);
       if (!amount || amount <= 0) { toast("Enter a valid amount", "danger"); return; }
       var res = Goals.contribute(addGoalId, amount);
@@ -306,6 +409,7 @@
           '</div>' +
           '<div style="margin-top:auto;padding-top:var(--sp-5)" class="row gap-2">' +
             '<button class="btn btn--secondary grow" data-add-money="' + g.id + '"><span class="material-symbols-outlined">add_card</span> Add Money</button>' +
+            '<button class="icon-btn" data-edit-saved="' + g.id + '" aria-label="Edit contributed amount" title="Edit contributed amount"><span class="material-symbols-outlined">edit</span></button>' +
             '<button class="icon-btn" data-delete-goal="' + g.id + '" aria-label="Delete goal" title="Delete"><span class="material-symbols-outlined">delete</span></button>' +
           '</div>' +
         '</div>';
@@ -369,6 +473,8 @@
     document.addEventListener("click", function (e) {
       var addBtn = e.target.closest("[data-add-money]");
       if (addBtn) { openAddMoney(addBtn.getAttribute("data-add-money")); return; }
+      var editBtn = e.target.closest("[data-edit-saved]");
+      if (editBtn) { openEditSaved(editBtn.getAttribute("data-edit-saved")); return; }
       var delBtn = e.target.closest("[data-delete-goal]");
       if (delBtn) {
         var id = delBtn.getAttribute("data-delete-goal");

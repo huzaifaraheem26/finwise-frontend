@@ -26,7 +26,8 @@
   //   1. window.FINWISE_API_BASE — set before this script loads to override.
   //   2. Local dev (localhost / 127.0.0.1 / file://) -> local API.
   //   3. Anything else (e.g. the Netlify domain) -> the deployed Render API.
-  var PROD_API_BASE = "https://finwise-api.onrender.com/api";
+var PROD_API_BASE = "https://finwise-backend-aywx.onrender.com/api";
+
   var host = (location.hostname || "").toLowerCase();
   var isLocal = host === "localhost" || host === "127.0.0.1" || host === "" || location.protocol === "file:";
   var API_BASE =

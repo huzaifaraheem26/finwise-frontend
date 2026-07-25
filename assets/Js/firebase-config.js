@@ -55,18 +55,6 @@ var firebaseConfig = {
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
     } catch (e) { /* older SDKs already default to LOCAL */ }
 
-    /* Mobile browsers frequently block or mishandle the Google sign-in POPUP
-       (it closes silently, dumping the user back on the login page). Use the
-       REDIRECT flow on small/touch screens and the popup on desktop. */
-    function preferRedirect() {
-      try {
-        var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-        var narrow = window.innerWidth <= 768;
-        var touch = "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
-        return !!(coarse || narrow || touch);
-      } catch (e) { return false; }
-    }
-
     /* Whether the current page is one of the auth pages (login/signup) — used
        to decide when Firebase auth-state changes should auto-redirect to
        the dashboard. */
@@ -422,9 +410,12 @@ var firebaseConfig = {
     };
 
     /**
-     * Trigger Google sign-in via popup. On success, redirect to the
-     * dashboard. On failure, call onError(message) so the page can show
-     * a toast without needing to know Firebase specifics.
+     * Trigger Google sign-in via popup on all devices (desktop and mobile).
+     * Modern mobile browsers handle popups correctly; the old redirect flow
+     * is unreliable on mobile because third-party storage blocking causes
+     * getRedirectResult() to return null and onAuthStateChanged never fires,
+     * leaving the user stranded on the login page.
+     * If the browser explicitly blocks the popup, we fall back to redirect.
      * @param {(msg: string) => void} [onError]
      */
     window.finwiseGoogleSignIn = function (onError) {
@@ -433,25 +424,10 @@ var firebaseConfig = {
         return;
       }
 
-      // On mobile/touch devices use the redirect flow (popups are unreliable
-      // there). getRedirectResult (above) finishes the sign-in on return.
-      if (preferRedirect()) {
-        auth.signInWithRedirect(googleProvider).catch(function (err) {
-          console.error("[firebase] Google redirect sign-in error:", err);
-          var msg =
-            err && err.code === "auth/unauthorized-domain"
-              ? "This domain isn't authorized in Firebase. Add it under Authentication → Settings."
-              : (err && err.message) || "Google sign-in failed. Please try again.";
-          if (onError) onError(msg);
-        });
-        return;
-      }
-
       auth
         .signInWithPopup(googleProvider)
         .then(function (cred) {
           persistUser(cred && cred.user);
-          // Signed in — go to the app.
           window.location.href = "dashboard.html";
         })
         .catch(function (err) {
@@ -463,6 +439,7 @@ var firebaseConfig = {
           ];
           if (err && ignore.indexOf(err.code) !== -1) return;
           // If the browser blocked the popup, fall back to the redirect flow.
+          // handleRedirectResult + onAuthStateChanged (above) complete the sign-in on return.
           if (err && err.code === "auth/popup-blocked") {
             auth.signInWithRedirect(googleProvider).catch(function (e2) {
               if (onError) onError((e2 && e2.message) || "Google sign-in failed. Please try again.");
