@@ -140,9 +140,9 @@
 <a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
 </nav>
 <div class="sidebar__user">
-<div class="avatar">A</div>
+<div class="avatar"><span class="material-symbols-outlined" style="font-size:20px">person</span></div>
 <div class="sidebar__user-meta">
-<p class="sidebar__user-name">Ahmed</p>
+<p class="sidebar__user-name">Account</p>
 </div>
 </div>
 </aside>
@@ -153,14 +153,14 @@
 <div class="mobile-bar">
 <button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
 <span class="mobile-bar__brand">FINWISE</span>
-<span class="material-symbols-outlined">account_circle</span>
+<a href="profile.html" class="mobile-bar__avatar avatar avatar--sm" aria-label="Profile"><span class="material-symbols-outlined" style="font-size:18px">person</span></a>
 </div>
 <!-- Desktop top bar -->
 <header class="topbar topbar--end">
 <div class="topbar__actions">
 <button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
 <div class="topbar__divider"></div>
-<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+<div class="topbar__user"><div class="avatar avatar--sm"><span class="material-symbols-outlined" style="font-size:18px">person</span></div><span>Account</span></div>
 </div>
 </header>
 
@@ -194,7 +194,7 @@ Income
 
 <!-- Description -->
 <div class="field" style="margin-bottom:0">
-<label>Description 📝</label>
+<label>Description </label>
 <input class="input" id="description" placeholder="What was this for?" type="text"/>
 </div>
 
@@ -309,6 +309,15 @@ Save Transaction
 </div>
 
 <div class="scrim" aria-hidden="true"></div>
+
+<!-- Bottom navigation (mobile only) -->
+<nav class="bottom-nav" aria-label="Main navigation">
+  <a href="dashboard.html" class="bottom-nav__item"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
+  <a href="transaction.html" class="bottom-nav__item"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+  <a href="add-transaction.html" class="bottom-nav__item bottom-nav__item--add" aria-label="Add Transaction"><span class="bottom-nav__add-btn"><span class="material-symbols-outlined">add</span></span></a>
+  <a href="budget.html" class="bottom-nav__item"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+  <a href="goals.html" class="bottom-nav__item"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+</nav>
 
 <script>
   var currentMode = 'expense';

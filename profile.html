@@ -104,9 +104,9 @@
 <a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
 </nav>
 <div class="sidebar__user">
-<div class="avatar">A</div>
+<div class="avatar"><span class="material-symbols-outlined" style="font-size:20px">person</span></div>
 <div class="sidebar__user-meta">
-<p class="sidebar__user-name">Ahmed</p>
+<p class="sidebar__user-name">Account</p>
 </div>
 </div>
 </aside>
@@ -117,7 +117,7 @@
 <div class="mobile-bar">
 <button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
 <span class="mobile-bar__brand">FINWISE</span>
-<span class="material-symbols-outlined">account_circle</span>
+<a href="profile.html" class="mobile-bar__avatar avatar avatar--sm" aria-label="Profile"><span class="material-symbols-outlined" style="font-size:18px">person</span></a>
 </div>
 <!-- Desktop top bar -->
 <header class="topbar">
@@ -128,7 +128,7 @@
 <div class="topbar__actions">
 <button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
 <div class="topbar__divider"></div>
-<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+<div class="topbar__user"><div class="avatar avatar--sm"><span class="material-symbols-outlined" style="font-size:18px">person</span></div><span>Account</span></div>
 </div>
 </header>
 
@@ -154,12 +154,9 @@
 </button>
 <input type="file" id="avatarInput" accept="image/*" hidden/>
 </div>
-<h3 class="title" data-user-title>Ahmed Khan</h3>
-<div class="badge badge--accent mt-2 mb-4">
-<span class="material-symbols-outlined filled-icon" style="font-size:14px;">verified</span>
-Pro Plan Member
-</div>
-<div style="width:100%; border-top:1px solid var(--border); padding-top: var(--sp-4);">
+<h3 class="title" data-user-title>—</h3>
+<p class="muted" data-user-email-display style="margin-top:4px;font-size:14px"></p>
+<div style="width:100%; border-top:1px solid var(--border); padding-top: var(--sp-4); margin-top: var(--sp-4);">
 <a class="list-link" href="#">
 <span class="lead"><span class="material-symbols-outlined text-accent">lock_reset</span>Change Password</span>
 <span class="material-symbols-outlined chevron">chevron_right</span>
@@ -171,14 +168,14 @@ Pro Plan Member
 </div>
 </div>
 
-<!-- Account age accent card -->
+<!-- Account summary accent card (real data) -->
 <div class="bento-accent">
 <div style="position:relative; z-index:1;">
-<p class="eyebrow" style="color:rgba(255,255,255,0.8);">Account Age</p>
-<p class="headline" style="color:#fff; margin:4px 0 var(--sp-4);">2 Years, 4 Months</p>
+<p class="eyebrow" style="color:rgba(255,255,255,0.8);">Transactions Tracked</p>
+<p class="headline" style="color:#fff; margin:4px 0 var(--sp-4);" id="profileTxCount">0</p>
 <div class="bento-accent__pill">
 <span class="material-symbols-outlined" style="font-size:16px;">bolt</span>
-Next billing: Oct 12, 2024
+<span id="profileBalance">Net PKR 0</span>
 </div>
 </div>
 <div class="bento-accent__bg">
@@ -210,11 +207,11 @@ Next billing: Oct 12, 2024
 <div class="grid cols-2">
 <div class="field">
 <label>Full Name</label>
-<input class="input" id="profileName" data-user-name type="text" value="Ahmed Khan"/>
+<input class="input" id="profileName" data-user-name type="text" value=""/>
 </div>
 <div class="field">
 <label>Email Address</label>
-<input class="input" id="profileEmail" data-user-email type="email" value="ahmed.khan@finwise.io"/>
+<input class="input" id="profileEmail" data-user-email type="email" value=""/>
 </div>
 <div class="field">
 <label>Country</label>
@@ -292,6 +289,15 @@ Next billing: Oct 12, 2024
 
 <div class="scrim" aria-hidden="true"></div>
 
+<!-- Bottom navigation (mobile only) -->
+<nav class="bottom-nav" aria-label="Main navigation">
+  <a href="dashboard.html" class="bottom-nav__item"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
+  <a href="transaction.html" class="bottom-nav__item"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+  <a href="add-transaction.html" class="bottom-nav__item bottom-nav__item--add" aria-label="Add Transaction"><span class="bottom-nav__add-btn"><span class="material-symbols-outlined">add</span></span></a>
+  <a href="budget.html" class="bottom-nav__item"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+  <a href="goals.html" class="bottom-nav__item"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+</nav>
+
 <!-- Micro-interaction scripts -->
 <script>
   function switchTab(tabId) {
@@ -320,6 +326,23 @@ Next billing: Oct 12, 2024
 
   // Save Changes — persist the edited name across the whole app.
   document.addEventListener('DOMContentLoaded', function () {
+    // Paint the email under the profile name and the summary stats from the
+    // shared store, so the card shows the real user + their real activity.
+    function paintProfileStats() {
+      var user = (window.FinwiseUser && window.FinwiseUser.get()) || {};
+      var emailEl = document.querySelector('[data-user-email-display]');
+      if (emailEl) emailEl.textContent = user.email || '';
+      if (window.FinwiseStore) {
+        var s = window.FinwiseStore.summary();
+        var count = document.getElementById('profileTxCount');
+        var bal = document.getElementById('profileBalance');
+        if (count) count.textContent = String(s.txCount || 0);
+        if (bal) bal.textContent = 'Net PKR ' + window.FinwiseStore.fmtAmount(s.balance || 0);
+      }
+    }
+    paintProfileStats();
+    window.addEventListener('finwise:change', paintProfileStats);
+
     var saveBtn = document.getElementById('saveProfileBtn');
     var nameInput = document.getElementById('profileName');
     if (!saveBtn || !nameInput) return;
@@ -493,6 +516,7 @@ Next billing: Oct 12, 2024
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/store.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

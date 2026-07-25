@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+
+# This is a multi-page static site: every real route is an .html file that
+# exists on disk (dashboard.html, transaction.html, …). Netlify serves those
+# files directly, so refreshes and direct URLs to them work out of the box.
+# The catch-all below only handles unknown paths (e.g. a stray /dashboard with
+# no extension) by sending the visitor to the entry page instead of a raw 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FINWISE</title>
+</head>
+<body>
+<script>
+  /* Entry point / shared-link router.
+     A brand-new visitor (no signed-in user stored on this device) is sent to
+     the Login page. A returning, authenticated user goes straight to the
+     Dashboard. Auth state is mirrored into localStorage at sign-in
+     (see firebase-config.js -> persistUser), so this check works even though
+     this page doesn't load the Firebase SDK. */
+  (function () {
+    var authed = false;
+    try {
+      var raw = localStorage.getItem("finwise:user");
+      if (raw) {
+        var u = JSON.parse(raw);
+        authed = !!(u && (u.name || u.email));
+      }
+    } catch (e) { authed = false; }
+    window.location.replace(authed ? "dashboard.html" : "login.html");
+  })();
+</script>
+</body>
+</html>

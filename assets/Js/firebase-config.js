@@ -47,6 +47,34 @@ var firebaseConfig = {
     window.googleProvider = googleProvider;
     window.finwiseAuthReady = true;
 
+    /* Keep the user signed in across reloads/tabs until they explicitly log
+       out. LOCAL persistence is Firebase's default, but we set it explicitly
+       so a redirect sign-in (mobile) reliably restores the session when the
+       page reloads after returning from Google. */
+    try {
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    } catch (e) { /* older SDKs already default to LOCAL */ }
+
+    /* Mobile browsers frequently block or mishandle the Google sign-in POPUP
+       (it closes silently, dumping the user back on the login page). Use the
+       REDIRECT flow on small/touch screens and the popup on desktop. */
+    function preferRedirect() {
+      try {
+        var coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+        var narrow = window.innerWidth <= 768;
+        var touch = "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
+        return !!(coarse || narrow || touch);
+      } catch (e) { return false; }
+    }
+
+    /* Whether the current page is one of the auth pages (login/signup) — used
+       to decide when Firebase auth-state changes should auto-redirect to
+       the dashboard. */
+    function onAuthPage() {
+      var page = (location.pathname.split("/").pop() || "").toLowerCase();
+      return page === "login.html" || page === "signup.html";
+    }
+
     /**
      * Translate a Firebase auth error into a user-friendly message.
      * @param {{code?: string, message?: string}} err
@@ -99,7 +127,10 @@ var firebaseConfig = {
         (user.displayName && user.displayName.trim()) ||
         (user.email ? user.email.split("@")[0] : "") ||
         "";
-      var record = { name: name, email: user.email || "" };
+      // uid identifies the account and is used by every store to namespace
+      // its localStorage cache — so User B on the same browser never sees
+      // User A's transactions/budgets/goals/notifications/etc.
+      var record = { uid: user.uid || "", name: name, email: user.email || "" };
       // Prefer the shared store API if app.js is loaded; else write directly.
       if (window.FinwiseUser && window.FinwiseUser.set) {
         window.FinwiseUser.set(record);
@@ -139,10 +170,47 @@ var firebaseConfig = {
     };
 
     // Keep the local store in sync with the live Firebase session on any page
-    // that loads the SDK (covers refreshes and the profile page).
+    // that loads the SDK (covers refreshes and the profile page). On the auth
+    // pages this is also the safety net that completes a mobile Google sign-in:
+    // if the browser restored the session after returning from Google but
+    // getRedirectResult came back empty (common with third-party-storage
+    // blocking), we still detect the signed-in user and move them to the
+    // dashboard instead of leaving them stranded on the login page.
+    var suppressAuthRedirect = false; // true while email sign-up provisions + signs out
     auth.onAuthStateChanged(function (user) {
-      if (user) persistUser(user);
+      if (!user) return;
+      persistUser(user);
+      if (onAuthPage() && !suppressAuthRedirect) {
+        window.location.replace("dashboard.html");
+      }
     });
+
+    /* Complete a Google REDIRECT sign-in. When the browser returns from the
+       Google consent screen, getRedirectResult resolves with the signed-in
+       user; we persist them and route to the dashboard. Runs once per page
+       load on the auth pages that load this SDK. */
+    (function handleRedirectResult() {
+      // Only meaningful on the login/signup pages (which show a Google button).
+      if (!onAuthPage()) return;
+      auth
+        .getRedirectResult()
+        .then(function (result) {
+          if (result && result.user) {
+            persistUser(result.user);
+            window.location.replace("dashboard.html");
+          }
+          // If result.user is null the session may still be restored via
+          // onAuthStateChanged (above) — no need to do anything else here.
+        })
+        .catch(function (err) {
+          // Ignore "no redirect operation" (normal first visit); surface others.
+          if (!err || err.code === "auth/no-auth-event") return;
+          console.error("[firebase] redirect-result error:", err);
+          if (window.showToast) {
+            window.showToast(mapAuthError(err, "Google sign-in failed. Please try again."), "danger");
+          }
+        });
+    })();
 
     /**
      * Create a new account with email + password. On success we set the
@@ -157,6 +225,10 @@ var firebaseConfig = {
         if (opts.onError) opts.onError("Authentication is not available right now.");
         return;
       }
+      // While provisioning we're briefly signed in; suppress the auth-state
+      // auto-redirect (introduced for mobile Google flow) so the sign-out
+      // below actually lands the user on the login page.
+      suppressAuthRedirect = true;
       auth
         .createUserWithEmailAndPassword(opts.email, opts.password)
         .then(function (cred) {
@@ -167,16 +239,19 @@ var firebaseConfig = {
               : Promise.resolve();
           return setName.then(function () {
             // Persist the chosen name so it shows immediately after the
-            // subsequent login (survives the sign-out below).
-            persistUser({ displayName: opts.name, email: opts.email });
+            // subsequent login (survives the sign-out below). Include the
+            // real Firebase uid so stores keyed by uid line up on re-login.
+            persistUser({ uid: user && user.uid, displayName: opts.name, email: opts.email });
             // Sign out after provisioning so the login page is a genuine sign-in.
             return auth.signOut();
           });
         })
         .then(function () {
+          suppressAuthRedirect = false;
           if (opts.onSuccess) opts.onSuccess();
         })
         .catch(function (err) {
+          suppressAuthRedirect = false;
           console.error("[firebase] sign-up error:", err);
           if (opts.onError) opts.onError(mapAuthError(err, "Sign-up failed. Please try again."));
         });
@@ -357,6 +432,21 @@ var firebaseConfig = {
         if (onError) onError("Authentication is not available right now.");
         return;
       }
+
+      // On mobile/touch devices use the redirect flow (popups are unreliable
+      // there). getRedirectResult (above) finishes the sign-in on return.
+      if (preferRedirect()) {
+        auth.signInWithRedirect(googleProvider).catch(function (err) {
+          console.error("[firebase] Google redirect sign-in error:", err);
+          var msg =
+            err && err.code === "auth/unauthorized-domain"
+              ? "This domain isn't authorized in Firebase. Add it under Authentication → Settings."
+              : (err && err.message) || "Google sign-in failed. Please try again.";
+          if (onError) onError(msg);
+        });
+        return;
+      }
+
       auth
         .signInWithPopup(googleProvider)
         .then(function (cred) {
@@ -372,6 +462,13 @@ var firebaseConfig = {
             "auth/user-cancelled",
           ];
           if (err && ignore.indexOf(err.code) !== -1) return;
+          // If the browser blocked the popup, fall back to the redirect flow.
+          if (err && err.code === "auth/popup-blocked") {
+            auth.signInWithRedirect(googleProvider).catch(function (e2) {
+              if (onError) onError((e2 && e2.message) || "Google sign-in failed. Please try again.");
+            });
+            return;
+          }
           var msg =
             err && err.code === "auth/unauthorized-domain"
               ? "This domain isn't authorized in Firebase. Add it under Authentication → Settings."

@@ -41,9 +41,9 @@
 <a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
 </nav>
 <div class="sidebar__user">
-<div class="avatar">A</div>
+<div class="avatar"><span class="material-symbols-outlined" style="font-size:20px">person</span></div>
 <div class="sidebar__user-meta">
-<p class="sidebar__user-name">Ahmed</p>
+<p class="sidebar__user-name">Account</p>
 </div>
 </div>
 </aside>
@@ -54,7 +54,7 @@
 <div class="mobile-bar">
 <button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
 <span class="mobile-bar__brand">FINWISE</span>
-<span class="material-symbols-outlined">account_circle</span>
+<a href="profile.html" class="mobile-bar__avatar avatar avatar--sm" aria-label="Profile"><span class="material-symbols-outlined" style="font-size:18px">person</span></a>
 </div>
 <!-- Desktop top bar -->
 <header class="topbar">
@@ -66,7 +66,7 @@
 <div class="topbar__actions">
 <button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
 <div class="topbar__divider"></div>
-<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+<div class="topbar__user"><div class="avatar avatar--sm"><span class="material-symbols-outlined" style="font-size:18px">person</span></div><span>Account</span></div>
 </div>
 </header>
 
@@ -85,21 +85,21 @@
 <div class="tile-icon"><span class="material-symbols-outlined">account_balance</span></div>
 <div>
 <p class="eyebrow">Total Balance</p>
-<p class="mono" style="font-size:20px;font-weight:600">PKR 2,84,350</p>
+<p class="mono" style="font-size:20px;font-weight:600" id="tx-total-balance">PKR 0</p>
 </div>
 </div>
 <div class="card hover-lift row gap-4">
 <div class="tile-icon tile-icon--success"><span class="material-symbols-outlined">trending_up</span></div>
 <div>
 <p class="eyebrow">Total Income</p>
-<p class="mono text-success" style="font-size:20px;font-weight:600">+PKR 1,50,000</p>
+<p class="mono text-success" style="font-size:20px;font-weight:600" id="tx-total-income">+PKR 0</p>
 </div>
 </div>
 <div class="card hover-lift row gap-4">
 <div class="tile-icon tile-icon--danger"><span class="material-symbols-outlined">trending_down</span></div>
 <div>
 <p class="eyebrow">Total Expenses</p>
-<p class="mono text-danger" style="font-size:20px;font-weight:600">-PKR 87,650</p>
+<p class="mono text-danger" style="font-size:20px;font-weight:600" id="tx-total-expense">-PKR 0</p>
 </div>
 </div>
 </section>
@@ -122,11 +122,11 @@
 </select>
 <div class="input-group" style="max-width:180px">
 <span class="material-symbols-outlined">calendar_today</span>
-<input class="input" type="date" id="date-from" aria-label="From date" value="2023-10-01"/>
+<input class="input" type="date" id="date-from" aria-label="From date"/>
 </div>
 <div class="input-group" style="max-width:180px">
 <span class="material-symbols-outlined">calendar_today</span>
-<input class="input" type="date" id="date-to" aria-label="To date" value="2023-10-31"/>
+<input class="input" type="date" id="date-to" aria-label="To date"/>
 </div>
 </div>
 <div class="row gap-2">
@@ -150,72 +150,14 @@
 </tr>
 </thead>
 <tbody id="tx-body">
-<!-- Row 1 -->
-<tr data-tx data-type="expense" data-category="food" data-date="2023-10-28" data-amount="-2450">
-<td class="mono">Oct 28, 2023</td>
-<td>
-<p style="font-weight:600">KFC Mall of Lahore</p>
-<p class="faint" style="font-size:12px">Card Ending 4242</p>
-</td>
-<td><span class="chip">Food</span></td>
-<td><span class="badge badge--danger type-badge">Expense</span></td>
-<td class="text-right mono text-danger" style="font-weight:600">-PKR 2,450</td>
-<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
-</tr>
-<!-- Row 2 -->
-<tr data-tx data-type="income" data-category="services" data-date="2023-10-26" data-amount="85000">
-<td class="mono">Oct 26, 2023</td>
-<td>
-<p style="font-weight:600">Freelance Payment — Upwork</p>
-<p class="faint" style="font-size:12px">Bank Transfer</p>
-</td>
-<td><span class="chip">Services</span></td>
-<td><span class="badge badge--success type-badge">Income</span></td>
-<td class="text-right mono text-success" style="font-weight:600">+PKR 85,000</td>
-<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
-</tr>
-<!-- Row 3 -->
-<tr data-tx data-type="expense" data-category="rent" data-date="2023-10-24" data-amount="-12800">
-<td class="mono">Oct 24, 2023</td>
-<td>
-<p style="font-weight:600">Sui Northern Gas Bill</p>
-<p class="faint" style="font-size:12px">Auto-pay enabled</p>
-</td>
-<td><span class="chip">Rent/Utility</span></td>
-<td><span class="badge badge--danger type-badge">Expense</span></td>
-<td class="text-right mono text-danger" style="font-weight:600">-PKR 12,800</td>
-<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
-</tr>
-<!-- Row 4 -->
-<tr data-tx data-type="expense" data-category="transport" data-date="2023-10-22" data-amount="-6500">
-<td class="mono">Oct 22, 2023</td>
-<td>
-<p style="font-weight:600">Fuel — Shell Station</p>
-<p class="faint" style="font-size:12px">Card Ending 4242</p>
-</td>
-<td><span class="chip">Transport</span></td>
-<td><span class="badge badge--danger type-badge">Expense</span></td>
-<td class="text-right mono text-danger" style="font-weight:600">-PKR 6,500</td>
-<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
-</tr>
-<!-- Row 5 -->
-<tr data-tx data-type="expense" data-category="shopping" data-date="2023-10-20" data-amount="-14320">
-<td class="mono">Oct 20, 2023</td>
-<td>
-<p style="font-weight:600">Grocery — Al-Fatah</p>
-<p class="faint" style="font-size:12px">Cash Payment</p>
-</td>
-<td><span class="chip">Shopping</span></td>
-<td><span class="badge badge--danger type-badge">Expense</span></td>
-<td class="text-right mono text-danger" style="font-weight:600">-PKR 14,320</td>
-<td class="text-right"><button type="button" class="row-action row-action--delete material-symbols-outlined" data-delete aria-label="Delete transaction" title="Delete">delete</button></td>
-</tr>
+<!-- Rows are injected by assets/js/store.js from the user's saved transactions.
+     Until any exist, the transactions.js empty-state row is shown. -->
 </tbody>
 </table>
 </div>
 <!-- Pagination -->
 <div class="row-between wrap" style="padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--border);background:var(--surface-2)">
-<span class="muted" style="font-size:14px">Showing <span style="font-weight:600;color:var(--text)" id="tx-visible-count">5</span> of <span id="tx-total-count">5</span> transactions</span>
+<span class="muted" style="font-size:14px">Showing <span style="font-weight:600;color:var(--text)" id="tx-visible-count">0</span> of <span id="tx-total-count">0</span> transactions</span>
 <div class="pager" id="tx-pagination"></div>
 </div>
 </section>
@@ -256,6 +198,15 @@
 </div>
 
 <div class="scrim" aria-hidden="true"></div>
+
+<!-- Bottom navigation (mobile only) -->
+<nav class="bottom-nav" aria-label="Main navigation">
+  <a href="dashboard.html" class="bottom-nav__item"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
+  <a href="transaction.html" class="bottom-nav__item"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+  <a href="add-transaction.html" class="bottom-nav__item bottom-nav__item--add" aria-label="Add Transaction"><span class="bottom-nav__add-btn"><span class="material-symbols-outlined">add</span></span></a>
+  <a href="budget.html" class="bottom-nav__item"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+  <a href="goals.html" class="bottom-nav__item"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+</nav>
 
 <!-- PDF export libraries (jsPDF + autoTable). Optional: exportPDF falls back to silent print if these fail to load. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

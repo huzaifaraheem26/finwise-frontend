@@ -29,9 +29,9 @@
 <a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
 </nav>
 <div class="sidebar__user">
-<div class="avatar">A</div>
+<div class="avatar"><span class="material-symbols-outlined" style="font-size:20px">person</span></div>
 <div class="sidebar__user-meta">
-<p class="sidebar__user-name">Ahmed</p>
+<p class="sidebar__user-name">Account</p>
 </div>
 </div>
 </aside>
@@ -42,7 +42,7 @@
 <div class="mobile-bar">
 <button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
 <span class="mobile-bar__brand">FINWISE</span>
-<span class="material-symbols-outlined">account_circle</span>
+<a href="profile.html" class="mobile-bar__avatar avatar avatar--sm" aria-label="Profile"><span class="material-symbols-outlined" style="font-size:18px">person</span></a>
 </div>
 <!-- Desktop top bar -->
 <header class="topbar">
@@ -54,7 +54,7 @@
 <div class="topbar__actions">
 <button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
 <div class="topbar__divider"></div>
-<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+<div class="topbar__user"><div class="avatar avatar--sm"><span class="material-symbols-outlined" style="font-size:18px">person</span></div><span>Account</span></div>
 </div>
 </header>
 
@@ -71,9 +71,9 @@
 <span class="eyebrow">Current Balance</span>
 </div>
 </div>
-<h2 class="balance-card__amount animate-count" id="db-balance">PKR 2,84,350</h2>
+<h2 class="balance-card__amount animate-count" id="db-balance">PKR 0</h2>
 <div class="balance-card__trendrow">
-<span class="balance-card__trend"><span class="material-symbols-outlined">trending_up</span>+4.6%</span>
+<span class="balance-card__trend"><span class="material-symbols-outlined">trending_up</span>Live</span>
 </div>
 </div>
 <div class="balance-card__stats">
@@ -82,7 +82,7 @@
 <span class="balance-stat__icon balance-stat__icon--in"><span class="material-symbols-outlined">south_west</span></span>
 <p class="balance-stat__label">Income</p>
 </div>
-<p class="balance-stat__value" id="db-income">PKR 98,200</p>
+<p class="balance-stat__value" id="db-income">PKR 0</p>
 <span class="balance-stat__spark balance-stat__spark--in" aria-hidden="true"></span>
 </div>
 <div class="balance-stat balance-stat--out">
@@ -90,7 +90,7 @@
 <span class="balance-stat__icon balance-stat__icon--out"><span class="material-symbols-outlined">north_east</span></span>
 <p class="balance-stat__label">Expense</p>
 </div>
-<p class="balance-stat__value" id="db-expense">PKR 42,650</p>
+<p class="balance-stat__value" id="db-expense">PKR 0</p>
 <span class="balance-stat__spark balance-stat__spark--out" aria-hidden="true"></span>
 </div>
 </div>
@@ -101,34 +101,34 @@
 <div class="stat-card">
 <div class="row-between mb-4">
 <div class="stat-card__icon"><span class="material-symbols-outlined">savings</span></div>
-<span class="text-accent" style="font-weight:600;font-size:14px">+2.4%</span>
+<span class="muted eyebrow">Live</span>
 </div>
 <p class="eyebrow">Savings Rate</p>
-<h3 class="stat-card__value">41.7%</h3>
+<h3 class="stat-card__value" id="db-savings-rate">0%</h3>
 </div>
 <div class="stat-card">
 <div class="row-between mb-4">
 <div class="stat-card__icon"><span class="material-symbols-outlined">sync_alt</span></div>
-<span class="muted eyebrow">Monthly</span>
+<span class="muted eyebrow">Total</span>
 </div>
 <p class="eyebrow">Transactions</p>
-<h3 class="stat-card__value" id="db-count">47</h3>
+<h3 class="stat-card__value" id="db-count">0</h3>
 </div>
 <div class="stat-card">
 <div class="row-between mb-4">
 <div class="stat-card__icon"><span class="material-symbols-outlined">home</span></div>
-<span class="text-accent" style="font-weight:600;font-size:14px">Rent</span>
+<span class="text-accent" style="font-weight:600;font-size:14px" id="db-biggest-expense-cat">—</span>
 </div>
 <p class="eyebrow">Biggest Expense</p>
-<h3 class="stat-card__value">PKR 35,000</h3>
+<h3 class="stat-card__value" id="db-biggest-expense">PKR 0</h3>
 </div>
 <div class="stat-card">
 <div class="row-between mb-4">
 <div class="stat-card__icon"><span class="material-symbols-outlined">account_balance</span></div>
-<span class="text-accent" style="font-weight:600;font-size:14px">Top 5%</span>
+<span class="text-accent" style="font-weight:600;font-size:14px">Net</span>
 </div>
 <p class="eyebrow">Net Worth</p>
-<h3 class="stat-card__value">PKR 8,45,200</h3>
+<h3 class="stat-card__value" id="db-net-worth">PKR 0</h3>
 </div>
 </div>
 
@@ -140,19 +140,14 @@
 <div class="donut-wrap">
 <svg class="donut" viewBox="0 0 100 100" id="donut-ring">
 <circle cx="50" cy="50" fill="transparent" r="40" stroke="var(--surface-3)" stroke-width="12"></circle>
-<circle cx="50" cy="50" fill="transparent" r="40" stroke="var(--danger)" stroke-dasharray="251.2" stroke-dashoffset="175.84" stroke-width="12"></circle>
-<circle cx="50" cy="50" fill="transparent" r="40" stroke="var(--accent)" stroke-dasharray="251.2" stroke-dashoffset="200.96" stroke-width="12" transform="rotate(108 50 50)"></circle>
-<circle cx="50" cy="50" fill="transparent" r="40" stroke="var(--warning)" stroke-dasharray="251.2" stroke-dashoffset="138.16" stroke-width="12" transform="rotate(198 50 50)"></circle>
 </svg>
 <div class="donut__center">
 <p class="eyebrow">Total</p>
-<p class="headline" id="donut-total">PKR 42k</p>
+<p class="headline" id="donut-total">PKR 0</p>
 </div>
 </div>
 <div class="col gap-2" id="donut-legend" style="margin-top:var(--sp-5)">
-<div class="row-between"><div class="row gap-2"><span class="legend-dot" style="background:var(--danger)"></span><span style="font-size:14px">Food</span></div><span style="font-weight:600;font-size:14px">30%</span></div>
-<div class="row-between"><div class="row gap-2"><span class="legend-dot" style="background:var(--accent)"></span><span style="font-size:14px">Rent</span></div><span style="font-weight:600;font-size:14px">25%</span></div>
-<div class="row-between"><div class="row gap-2"><span class="legend-dot" style="background:var(--warning)"></span><span style="font-size:14px">Others</span></div><span style="font-weight:600;font-size:14px">45%</span></div>
+<!-- Legend rendered live by store.js from real expenses -->
 </div>
 </div>
 <!-- Income vs Expenses Line Chart -->
@@ -187,39 +182,15 @@
 <a href="transaction.html" class="text-accent" style="font-weight:600;font-size:14px">View All</a>
 </div>
 <div class="table-wrap" style="border:none;border-radius:0">
-<table class="data">
+<table class="data data--cards">
 <thead>
 <tr><th>Description</th><th>Category</th><th>Date</th><th class="text-right">Amount</th></tr>
 </thead>
 <tbody id="dash-tx-body">
-<!-- Demo rows: shown only until the user's own transactions exist.
-     Once transactions are stored, store.js renders them here paginated. -->
-<tr data-demo-row>
-<td><div class="row gap-3"><div class="tile-icon" style="width:40px;height:40px;border-radius:var(--r-full)"><span class="material-symbols-outlined filled-icon">home</span></div><span style="font-weight:600">Rent Payment</span></div></td>
-<td><span class="badge badge--neutral">Housing</span></td>
-<td class="muted">Oct 01, 2023</td>
-<td class="text-right mono text-danger" style="font-weight:700">-PKR 35,000</td>
-</tr>
-<tr data-demo-row>
-<td><div class="row gap-3"><div class="tile-icon" style="width:40px;height:40px;border-radius:var(--r-full)"><span class="material-symbols-outlined filled-icon">payments</span></div><span style="font-weight:600">Monthly Salary</span></div></td>
-<td><span class="badge badge--neutral">Income</span></td>
-<td class="muted">Sep 30, 2023</td>
-<td class="text-right mono text-success" style="font-weight:700">+PKR 98,200</td>
-</tr>
-<tr data-demo-row>
-<td><div class="row gap-3"><div class="tile-icon" style="width:40px;height:40px;border-radius:var(--r-full)"><span class="material-symbols-outlined filled-icon">restaurant</span></div><span style="font-weight:600">Foodpanda Delivery</span></div></td>
-<td><span class="badge badge--neutral">Food</span></td>
-<td class="muted">Sep 28, 2023</td>
-<td class="text-right mono text-danger" style="font-weight:700">-PKR 2,450</td>
-</tr>
-<tr data-demo-row>
-<td><div class="row gap-3"><div class="tile-icon" style="width:40px;height:40px;border-radius:var(--r-full)"><span class="material-symbols-outlined filled-icon">shopping_bag</span></div><span style="font-weight:600">Outfitters Mall</span></div></td>
-<td><span class="badge badge--neutral">Shopping</span></td>
-<td class="muted">Sep 25, 2023</td>
-<td class="text-right mono text-danger" style="font-weight:700">-PKR 5,200</td>
-</tr>
-<tr data-dash-empty hidden>
-<td colspan="4" class="text-center muted" style="padding:var(--sp-6)">No transactions match your search.</td>
+<!-- store.js renders the user's real transactions here (10/page). Until any
+     exist, the empty-state row below is shown. -->
+<tr data-dash-empty>
+<td colspan="4" class="text-center muted" style="padding:var(--sp-6)">No transactions yet. Add one to get started.</td>
 </tr>
 </tbody>
 </table>
@@ -267,10 +238,33 @@
 <!-- Mobile nav scrim -->
 <div class="scrim" aria-hidden="true"></div>
 
-<!-- Floating Action Button -->
+<!-- Floating Action Button (desktop) -->
 <a href="add-transaction.html" class="fab" aria-label="Add Transaction">
 <span class="material-symbols-outlined" style="font-size:28px">add</span>
 </a>
+
+<!-- Bottom navigation (mobile only) -->
+<nav class="bottom-nav" aria-label="Main navigation">
+  <a href="dashboard.html" class="bottom-nav__item active">
+    <span class="material-symbols-outlined">dashboard</span>
+    <span>Home</span>
+  </a>
+  <a href="transaction.html" class="bottom-nav__item">
+    <span class="material-symbols-outlined">receipt_long</span>
+    <span>Transactions</span>
+  </a>
+  <a href="add-transaction.html" class="bottom-nav__item bottom-nav__item--add" aria-label="Add Transaction">
+    <span class="bottom-nav__add-btn"><span class="material-symbols-outlined">add</span></span>
+  </a>
+  <a href="budget.html" class="bottom-nav__item">
+    <span class="material-symbols-outlined">account_balance_wallet</span>
+    <span>Budgets</span>
+  </a>
+  <a href="goals.html" class="bottom-nav__item">
+    <span class="material-symbols-outlined">ads_click</span>
+    <span>Goals</span>
+  </a>
+</nav>
 
 <!-- Shared store: live totals, recent list & expense donut (no refresh needed) -->
 <script src="assets/js/pagination.js"></script>

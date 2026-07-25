@@ -153,6 +153,13 @@ h1, h2, h3, h4, h5 { font-family: var(--font-head); font-weight: 700; line-heigh
 }
 .mobile-bar__brand { font-family: var(--font-head); font-weight: 800; color: var(--accent-darker); flex: 1; }
 .mobile-bar .material-symbols-outlined { color: var(--text-muted); }
+/* Mobile top-bar profile avatar: shows uploaded photo (via applyAvatar) or
+   initials/person icon. Sits on the accent fill so the icon must stay light. */
+.mobile-bar__avatar {
+  text-decoration: none; flex-shrink: 0; overflow: hidden;
+  background-size: cover; background-position: center;
+}
+.mobile-bar__avatar .material-symbols-outlined { color: var(--on-accent); }
 .nav-toggle {
   display: grid; place-items: center; width: 40px; height: 40px;
   border-radius: var(--r-md); color: var(--text); flex-shrink: 0;
@@ -990,4 +997,389 @@ tr:hover .medallion { transform: scale(1.08); }
   .page { padding: var(--sp-3); }
   .card, .stat-card { padding: var(--sp-4); }
   .modal__head, .modal__body, .modal__foot { padding: var(--sp-4); }
+}
+
+/* ============================================================
+   10. Mobile-first native-app experience (≤768px)
+   Desktop layout is untouched — all rules here are inside
+   max-width media queries.
+   ============================================================ */
+
+/* ---- Bottom navigation bar (mobile only) ---- */
+.bottom-nav {
+  display: none;
+}
+@media (max-width: 768px) {
+  /* Push page content above the bottom nav */
+  .app-main { padding-bottom: 68px; }
+
+  .bottom-nav {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    height: 64px;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(28,43,45,0.07);
+    align-items: stretch;
+    padding: 0 var(--sp-2);
+  }
+  .bottom-nav__item {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px;
+    color: var(--text-faint);
+    font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+    border-radius: var(--r-md);
+    transition: color var(--transition), background var(--transition);
+    text-decoration: none;
+    padding: var(--sp-1) 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bottom-nav__item .material-symbols-outlined {
+    font-size: 24px;
+    transition: font-variation-settings var(--transition);
+  }
+  .bottom-nav__item.active {
+    color: var(--accent-darker);
+  }
+  .bottom-nav__item.active .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
+  .bottom-nav__item--add {
+    flex: 0 0 56px;
+    margin: auto var(--sp-2);
+  }
+  .bottom-nav__add-btn {
+    width: 48px; height: 48px; border-radius: var(--r-full);
+    background: var(--accent); color: var(--on-accent);
+    display: grid; place-items: center;
+    box-shadow: 0 4px 14px rgba(118,171,174,0.45);
+    transition: transform var(--transition), background var(--transition);
+  }
+  .bottom-nav__add-btn:active { transform: scale(0.93); }
+  .bottom-nav__add-btn .material-symbols-outlined { font-size: 26px; }
+
+  /* Hide the FAB on mobile — bottom nav has the add button */
+  .fab { display: none; }
+
+  /* Mobile bar refinements */
+  .mobile-bar {
+    height: 60px;
+    padding: 0 var(--sp-4);
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .mobile-bar__brand { font-size: 20px; }
+
+  /* Sidebar: full-height drawer with rounded right edge */
+  .sidebar {
+    width: min(280px, 85vw);
+    border-radius: 0 var(--r-xl) var(--r-xl) 0;
+    padding-top: var(--sp-6);
+  }
+
+  /* Page spacing */
+  .page { padding: var(--sp-3); gap: var(--sp-3); }
+
+  /* Balance card: single column, tighter */
+  .balance-card {
+    grid-template-columns: 1fr;
+    gap: var(--sp-4);
+    padding: var(--sp-5);
+    border-radius: var(--r-xl);
+  }
+  .balance-card__amount { font-size: clamp(28px, 8vw, 38px); }
+  .balance-card__stats { grid-template-rows: auto; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+  .balance-stat { padding: var(--sp-4); }
+  .balance-stat__value { font-size: 18px; }
+
+  /* Stat cards: 2-column grid */
+  .grid.cols-4 { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+  .stat-card { padding: var(--sp-4); }
+  .stat-card__value { font-size: 22px; }
+  .stat-card__icon { width: 38px; height: 38px; }
+
+  /* Charts: full width, correct aspect ratio (no distortion) */
+  .dash-grid { gap: var(--sp-3); }
+  /* The line chart SVG uses preserveAspectRatio="none" + a 600x200 viewBox, so
+     a fixed pixel height stretched it on narrow screens. Drive the height from
+     the width via aspect-ratio so the 3:1 proportion is preserved. */
+  .line-chart { height: auto; aspect-ratio: 3 / 1; width: 100%; }
+  .line-chart svg { width: 100%; height: 100%; display: block; }
+  .donut-wrap { min-height: 180px; display: grid; place-items: center; }
+  .donut { width: 160px; height: 160px; }
+
+  /* Recent transactions table → card list (dashboard only, .data--cards) */
+  .table-wrap { border-radius: var(--r-lg); }
+  table.data--cards thead { display: none; }
+  table.data--cards tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    row-gap: 6px; column-gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+  }
+  table.data--cards tbody tr:last-child { border-bottom: none; }
+  /* Keep search/pagination-hidden rows hidden despite the grid display above. */
+  table.data--cards tbody tr[hidden] { display: none; }
+  table.data--cards td { padding: 0; border: none; font-size: 13px; }
+  /* Row 1: description (with icon) left, amount right — kept on one line each */
+  table.data--cards td:first-child { grid-column: 1; grid-row: 1; min-width: 0; }
+  table.data--cards td:first-child .row { min-width: 0; }
+  table.data--cards td:first-child .row > span:last-child {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  table.data--cards td:last-child {
+    grid-column: 2; grid-row: 1;
+    text-align: right; font-size: 15px; white-space: nowrap;
+  }
+  /* Row 2: category badge left, date right — aligned under description/amount */
+  table.data--cards td:nth-child(2) { grid-column: 1; grid-row: 2; }
+  table.data--cards td:nth-child(3) {
+    grid-column: 2; grid-row: 2;
+    text-align: right; white-space: nowrap; font-size: 12px;
+  }
+
+  /* Other data tables (e.g. Transactions page) keep horizontal scroll so no
+     column is lost; the wrapper already sets overflow-x:auto. Nudge the cells
+     tighter and let the momentum scroll feel native. */
+  table.data:not(.data--cards) { min-width: 640px; }
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+
+  /* Budget card (dashboard overview) */
+  .budget-card { padding: var(--sp-4); }
+  .budget-card__cta { margin-top: var(--sp-4); }
+  /* Keep the head on one line: title + "This month" badge share the row and
+     the title never wraps or pushes the badge off-card. */
+  .budget-card__head { flex-wrap: nowrap; align-items: center; gap: var(--sp-2); }
+  .budget-card__heading { min-width: 0; }
+  .budget-card__head .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .budget-card__head .badge { flex-shrink: 0; white-space: nowrap; }
+  .budget-card__caption { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Budget item rows: name stays single-line + ellipsis, meta stays inside */
+  .budget-item__name { max-width: 100%; }
+  .budget-item__meta { flex-wrap: wrap; }
+
+  /* Footer: hide on mobile (bottom nav replaces it) */
+  .footer { display: none; }
+
+  /* Modals: slide up from bottom */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    max-width: 100%;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    max-height: 92vh;
+    transform: translateY(100%);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  /* Toast: full-width at bottom */
+  .toast-stack {
+    bottom: 76px; left: var(--sp-3); right: var(--sp-3);
+    align-items: stretch;
+  }
+  .toast { min-width: unset; }
+}
+
+/* ---- Tablet (769px – 1024px) ---- */
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root { --sidebar-w: 220px; }
+
+  .page { padding: var(--sp-5); gap: var(--sp-4); }
+
+  /* 2-col stat cards */
+  .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+
+  /* Charts: side by side but narrower */
+  .dash-grid { grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+  .dash-grid__span4 { grid-column: span 1; }
+  .dash-grid__span8 { grid-column: span 1; }
+
+  /* Balance card: keep two columns but tighter */
+  .balance-card { padding: var(--sp-5); gap: var(--sp-5); }
+  .balance-card__amount { font-size: clamp(28px, 3.5vw, 38px); }
+
+  /* Sidebar: slightly narrower, always visible */
+  .sidebar { width: var(--sidebar-w); }
+  .mobile-bar { display: none; }
+  .topbar { display: flex; }
+
+  /* Line chart height */
+  .line-chart { height: 200px; }
+}
+
+/* ============================================================
+   11. Page-specific mobile refinements (≤768px)
+   Desktop layout untouched — everything here is inside the
+   mobile media query. Added for the responsiveness pass.
+   ============================================================ */
+@media (max-width: 768px) {
+
+  /* ---- Shared: native date input picker indicator alignment ----
+     The old rule absolutely-positioned the ::-webkit-calendar-picker-indicator,
+     which webkit lays out inside the input's shadow DOM — that hack left the
+     arrow cramped/misaligned on mobile. Instead let the indicator flow to the
+     right edge naturally (margin-left:auto) and just size + fade it. This keeps
+     it correctly aligned in both plain inputs and .input-group date fields. */
+  input[type="date"].input {
+    padding-right: var(--sp-4);
+    display: flex; align-items: center;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    margin: 0 0 0 auto; padding: 0;
+    width: 20px; height: 20px;
+    cursor: pointer; opacity: 0.6;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.9; }
+  /* In the Transactions filter bar the field also carries a decorative left
+     calendar icon; keep room for it so the value and the picker don't collide. */
+  .input-group input[type="date"].input { padding-left: 44px; padding-right: var(--sp-3); }
+
+  /* ---- Transactions page: table → aligned cards ----
+     Replace the horizontal-scroll table with stacked cards so icons, text,
+     amount, date and category line up cleanly. Filtering/search/pagination
+     only toggle row visibility, so a pure display change is safe. */
+  table.data:not(.data--cards) { min-width: 0; }
+  table.data:not(.data--cards) thead { display: none; }
+  table.data:not(.data--cards) tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    row-gap: 6px; column-gap: var(--sp-3);
+    padding: var(--sp-4);
+    border-bottom: 1px solid var(--border);
+  }
+  table.data:not(.data--cards) tbody tr:last-child { border-bottom: none; }
+  /* The grid display above out-specifies the [hidden] UA rule; re-assert it so
+     rows hidden by filter/search/pagination (row.hidden = true) stay hidden. */
+  table.data:not(.data--cards) tbody tr[hidden] { display: none; }
+  table.data:not(.data--cards) td { padding: 0; border: none; }
+  /* Description (col1/row1) | Amount (col2/row1) */
+  table.data:not(.data--cards) td:nth-child(2) { grid-column: 1; grid-row: 1; min-width: 0; }
+  table.data:not(.data--cards) td:nth-child(2) p:first-child {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  table.data:not(.data--cards) td:nth-child(5) {
+    grid-column: 2; grid-row: 1; text-align: right; white-space: nowrap; font-size: 15px;
+  }
+  /* Category chip (col1/row2) | Type badge (col2/row2) */
+  table.data:not(.data--cards) td:nth-child(3) { grid-column: 1; grid-row: 2; }
+  table.data:not(.data--cards) td:nth-child(4) { grid-column: 2; grid-row: 2; text-align: right; }
+  /* Date (col1/row3) | Actions (col2/row3) */
+  table.data:not(.data--cards) td:nth-child(1) {
+    grid-column: 1; grid-row: 3; font-size: 12px; color: var(--text-muted);
+  }
+  table.data:not(.data--cards) td:nth-child(6) { grid-column: 2; grid-row: 3; text-align: right; }
+
+  /* Transactions filter bar: stack controls full-width, no cramped arrows */
+  #type-filter { width: 100%; }
+  #type-filter .segmented__btn { flex: 1; text-align: center; }
+  #category-filter { max-width: none !important; width: 100%; }
+  .card .input-group { max-width: none !important; width: 100%; }
+
+  /* ---- Add Transaction: consistent field sizing + centered Notes/Attachment ----
+     The Date+Payment and Notes+Attachment cols-2 grids stack on mobile; make
+     the paired fields align and give inputs a consistent comfortable height. */
+  .txn-form .input, .txn-form .select, .notes-field { min-height: 46px; }
+  .notes-field { min-height: 110px; }
+  .txn-card__head { padding: var(--sp-4); }
+  .txn-form { padding: var(--sp-4); gap: var(--sp-5); }
+  /* Keep the amount field prefix + input from crowding on small screens */
+  .amount-box { padding: var(--sp-3) var(--sp-4); }
+  .amount-box__input { font-size: 28px; min-height: 0; }
+  /* Category chip grid stays readable at 4 cols → drop to a comfy size */
+  #category-grid { gap: var(--sp-2); }
+  /* Notes + Attachment: when the cols-2 grid collapses to 1-col on mobile,
+     center the content of each field so they read as a focused single column. */
+  .txn-form .grid.cols-2 .field { display: flex; flex-direction: column; align-items: center; }
+  .txn-form .grid.cols-2 .field label { align-self: flex-start; }
+  .txn-form .grid.cols-2 .field .notes-field,
+  .txn-form .grid.cols-2 .field .dropzone,
+  .txn-form .grid.cols-2 .field .row.gap-2 { width: 100%; }
+
+  /* ---- Budget page ---- */
+  /* Header: stack the month selector and New Budget button vertically so they
+     never overlap or run off-screen. The selector takes the full width on its
+     own row; the button sits full-width beneath it. */
+  .budget-page-head { flex-direction: column; align-items: stretch; }
+  .budget-page-head .row.wrap {
+    flex-direction: column; flex-wrap: nowrap; align-items: stretch;
+    gap: var(--sp-3); width: 100%;
+  }
+  .month-selector { width: 100%; min-width: 0; justify-content: space-between; padding: 4px; }
+  .month-selector__label { padding: 0 var(--sp-2); font-size: 15px; white-space: nowrap; }
+  .month-selector .icon-btn { flex-shrink: 0; }
+  .budget-page-head .btn--primary { width: 100%; justify-content: center; white-space: nowrap; }
+
+  /* Category budget cards: single column, no text overflow */
+  #budget-grid { grid-template-columns: 1fr; }
+  .budget-tile { min-width: 0; }
+  /* Header row: icon + name/badges on the left must be able to shrink so the
+     edit/delete buttons stay on-card instead of pushing content off-screen. */
+  .budget-tile > .row-between { gap: var(--sp-2); align-items: flex-start; }
+  .budget-tile > .row-between > .row.gap-4 { min-width: 0; gap: var(--sp-3); }
+  .budget-tile > .row-between > .row.gap-4 > div:last-child { min-width: 0; }
+  .budget-tile .subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Status/period/alert badges: allow wrapping to a second line instead of
+     forcing the card wider than the viewport. */
+  .budget-tile .subtitle + .row.gap-2 { flex-wrap: wrap; }
+  .budget-tile .row-between { gap: var(--sp-2); }
+  .budget-tile .row-between p { min-width: 0; overflow-wrap: anywhere; }
+  .budget-tile .badge { white-space: nowrap; }
+  /* Alert cards (Warning / Over Budget / Reviewed): identical footprint so the
+     three read as a uniform set, and the content aligns rather than jumps. */
+  .alert-critical {
+    align-items: flex-start; gap: var(--sp-3);
+    min-height: 96px;
+  }
+  .alert-critical .grow { min-width: 0; }
+  .alert-critical .grow h4 { overflow-wrap: anywhere; }
+  .alert-critical .btn { flex-shrink: 0; white-space: nowrap; align-self: center; }
+  .alert-critical .tile-icon { flex-shrink: 0; }
+
+  /* ---- Goals page ---- */
+  #goals-grid, #goals-completed { grid-template-columns: 1fr; }
+  /* New Goal card: comfortable internal spacing so content isn't cramped */
+  .goal-card { padding: var(--sp-5); gap: var(--sp-4); }
+  .goal-placeholder { padding: var(--sp-6); }
+  .completed-card { padding: var(--sp-4); gap: var(--sp-4); }
+
+  /* ---- Profile page: center cards/containers ---- */
+  .profile-layout { justify-items: center; }
+  .profile-layout > .col { width: 100%; max-width: 560px; }
+  .ptabs { justify-content: center; }
+
+  /* ---- Settings page: center cards/sections; Danger Zone buttons in a row ---- */
+  .set-head { justify-content: center; }
+  .danger-zone .row-between { flex-direction: column; align-items: center; text-align: center; }
+  .danger-zone .row.gap-4 { flex-direction: column; align-items: center; }
+  /* Both danger actions side-by-side on the same row */
+  .danger-zone .row.wrap.gap-3 { flex-wrap: nowrap; width: 100%; gap: var(--sp-3); }
+  .danger-zone .row.wrap.gap-3 .btn { flex: 1; justify-content: center; white-space: nowrap; }
+
+  /* ---- Centered modals (New/Edit Budget, Add Money, Create Goal) ----
+     The default mobile treatment slides modals up from the bottom as a sheet.
+     These specific dialogs read better centered on screen, per spec. Opt them
+     in with .modal-overlay--center (added on the relevant overlays). */
+  .modal-overlay--center { align-items: center; padding: var(--sp-3); }
+  .modal-overlay--center .modal {
+    width: 100%;
+    max-width: min(460px, 100%);
+    border-radius: var(--r-lg);
+    /* Cap height to the viewport and let the body scroll internally so the
+       header and footer buttons are always reachable — the modal never runs
+       off the top or bottom of the screen. */
+    max-height: 92vh;
+    display: flex; flex-direction: column;
+    transform: translateY(12px) scale(0.98);
+  }
+  .modal-overlay--center.open .modal { transform: translateY(0) scale(1); }
+  /* The form fills the modal; only its body scrolls, head/foot stay pinned. */
+  #budget-modal .modal > form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  #budget-modal .modal__body { overflow-y: auto; min-height: 0; }
+  #budget-modal .bmodal__head, #budget-modal .modal__foot { flex-shrink: 0; }
 }

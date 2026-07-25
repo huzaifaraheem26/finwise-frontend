@@ -6,10 +6,73 @@
 (function () {
   "use strict";
 
+  /* ---- Per-user localStorage scoping ----
+     Every store below (notifications, settings, currency) keys its cache by
+     `<BASE>:<uid>`, so User B on the same browser never sees User A's data.
+     `finwise:user` itself is the identity record and stays global. When
+     nobody is signed in, currentUid() returns null and the stores no-op. */
+  var USER_KEY = "finwise:user";
+  var USER_EVT = "finwise:user-changed";  // same-tab signal from FinwiseUser.set/.clear
+
+  function currentUid() {
+    try {
+      var u = JSON.parse(localStorage.getItem(USER_KEY)) || {};
+      // Prefer the Firebase uid (stable, per-account). Fall back to email when
+      // pages that don't load the Firebase SDK have an older record without
+      // uid — email is unique per account and keeps the cache scoped.
+      return u.uid || u.email || null;
+    } catch (e) { return null; }
+  }
+  function scoped(base) {
+    var uid = currentUid();
+    return uid ? base + ":" + uid : null;
+  }
+
+  /* Bases of every uid-scoped key across the whole app. Kept here (not in
+     each individual store file) so wipeUidCache() can clear everything a
+     departing user left on this device in one place. */
+  var UID_BASES = [
+    "finwise.transactions", "finwise.categories",
+    "finwise.budgets", "finwise.budgetAlertsSent",
+    "finwise.goals",
+    "finwise:notifications", "finwise:settings", "finwise:currency"
+  ];
+  function wipeUidCache(uid) {
+    if (!uid) return;
+    UID_BASES.forEach(function (b) {
+      try { localStorage.removeItem(b + ":" + uid); } catch (e) {}
+    });
+  }
+
+  /* One-shot legacy migration for app.js-owned stores. Earlier builds wrote
+     un-namespaced keys (finwise:notifications / finwise:settings /
+     finwise:currency). Attach any leftover blob to the current user's scoped
+     key, then remove the legacy one. Store.js / budgets.js / goals.js do the
+     same for their own bases; centralising here would require all four files
+     to boot in a fixed order, which they don't. */
+  (function migrateLegacy() {
+    var uid = currentUid();
+    ["finwise:notifications", "finwise:settings", "finwise:currency"].forEach(function (base) {
+      var legacy = localStorage.getItem(base);
+      if (legacy == null) return;
+      if (uid && localStorage.getItem(base + ":" + uid) == null) {
+        try { localStorage.setItem(base + ":" + uid, legacy); } catch (e) {}
+      }
+      try { localStorage.removeItem(base); } catch (e) {}
+    });
+  })();
+
   /* ---- 1. Active nav highlight (keeps nav markup identical everywhere) ---- */
   function markActiveNav() {
     var here = (location.pathname.split("/").pop() || "dashboard.html").toLowerCase();
     document.querySelectorAll(".sidebar__nav .nav-link[href]").forEach(function (link) {
+      var target = (link.getAttribute("href") || "").split("/").pop().toLowerCase();
+      if (target && target === here) link.classList.add("active");
+      else link.classList.remove("active");
+    });
+    // Mobile bottom nav uses the same href-based matching.
+    document.querySelectorAll(".bottom-nav__item[href]").forEach(function (link) {
+      if (link.classList.contains("bottom-nav__item--add")) return;
       var target = (link.getAttribute("href") || "").split("/").pop().toLowerCase();
       if (target && target === here) link.classList.add("active");
       else link.classList.remove("active");
@@ -175,38 +238,27 @@
      up on the bell across every page and survives navigation. Same-page
      updates fire a custom event; other tabs sync via the native storage event.
      ---------------------------------------------------------------------- */
-  var NOTIF_KEY = "finwise:notifications";
+  var NOTIF_BASE = "finwise:notifications";
   var NOTIF_EVT = "finwise:notifications";
-  var NOTIF_SEEDED = "finwise:notifications-seeded";
+  function notifKey() { return scoped(NOTIF_BASE); }
 
-  // Default demo notifications, seeded once. (Budget-exceeded alerts are
-  // produced for real by the Budgets page, so they're not seeded here.)
-  function seedDefaults() {
-    var now = Date.now();
-    return [
-      { id: now - 1, icon: "savings",      type: "success", title: "Goal milestone reached", text: "Emergency Fund is now 75% funded. Keep it up!",   ts: now - 86400000 },
-      { id: now - 2, icon: "receipt_long", type: "accent",  title: "New transaction added",   text: "PKR 3,450 at Al-Fatah Superstore was recorded.", ts: now - 172800000 }
-    ];
-  }
-
+  /* Notifications start empty. Real notifications are produced by the app
+     itself (budget alerts, goal completions, password changes, etc.); there
+     is no seeded/demo data. Storage is uid-scoped: signed-out reads return
+     [] and writes are dropped. */
   function readNotifs() {
+    var k = notifKey();
+    if (!k) return [];
     try {
-      var raw = localStorage.getItem(NOTIF_KEY);
-      if (raw == null) {
-        // First run on this browser: seed the demo notifications once.
-        if (!localStorage.getItem(NOTIF_SEEDED)) {
-          var seed = seedDefaults();
-          localStorage.setItem(NOTIF_KEY, JSON.stringify(seed));
-          localStorage.setItem(NOTIF_SEEDED, "1");
-          return seed;
-        }
-        return [];
-      }
+      var raw = localStorage.getItem(k);
+      if (raw == null) return [];
       return JSON.parse(raw) || [];
     } catch (e) { return []; }
   }
   function writeNotifs(list) {
-    try { localStorage.setItem(NOTIF_KEY, JSON.stringify(list)); } catch (e) {}
+    var k = notifKey();
+    if (!k) return;
+    try { localStorage.setItem(k, JSON.stringify(list)); } catch (e) {}
     try { window.dispatchEvent(new CustomEvent(NOTIF_EVT)); } catch (e) {}
   }
 
@@ -250,7 +302,11 @@
     clear: function () { writeNotifs([]); },
     onChange: function (fn) {
       window.addEventListener(NOTIF_EVT, fn);
-      window.addEventListener("storage", function (e) { if (e.key === NOTIF_KEY) fn(); });
+      window.addEventListener(USER_EVT, fn);
+      window.addEventListener("storage", function (e) {
+        if (!e.key) return;
+        if (e.key === notifKey() || e.key === USER_KEY) fn();
+      });
     }
   };
   window.FinwiseNotify = Notify;
@@ -398,8 +454,9 @@
      via a debounced text sweep. No FX conversion: the number is unchanged,
      only the symbol/code in front of it changes (per product decision).
      ---------------------------------------------------------------------- */
-  var CUR_KEY = "finwise:currency";
+  var CUR_BASE = "finwise:currency";
   var CUR_EVT = "finwise:currency";
+  function curKey() { return scoped(CUR_BASE); }
   // code -> display token used in front of amounts.
   var CUR_SYMBOLS = { PKR: "PKR", USD: "$", GBP: "£", EUR: "€", AED: "AED" };
   // Any known currency token sitting directly in front of a number. Matched so
@@ -408,7 +465,9 @@
   var CUR_TOKEN_RE = /(?<![A-Za-z0-9])([+\-]?)(PKR|Rs\.?|USD|GBP|EUR|AED|\$|£|€)\s?(?=[0-9])/g;
 
   function currentCurrency() {
-    try { return localStorage.getItem(CUR_KEY) || "PKR"; } catch (e) { return "PKR"; }
+    var k = curKey();
+    if (!k) return "PKR";
+    try { return localStorage.getItem(k) || "PKR"; } catch (e) { return "PKR"; }
   }
   function currencySymbol(code) {
     return CUR_SYMBOLS[code || currentCurrency()] || (code || "PKR");
@@ -489,14 +548,19 @@
     set: function (code) {
       code = (code || "PKR").toUpperCase();
       if (!CUR_SYMBOLS[code]) code = "PKR";
-      try { localStorage.setItem(CUR_KEY, code); } catch (e) {}
+      var k = curKey();
+      if (k) { try { localStorage.setItem(k, code); } catch (e) {} }
       scheduleCurrencySweep();
       try { window.dispatchEvent(new CustomEvent(CUR_EVT)); } catch (e) {}
       if (window.showToast) window.showToast("Currency set to " + code, "success");
     },
     onChange: function (fn) {
       window.addEventListener(CUR_EVT, fn);
-      window.addEventListener("storage", function (e) { if (e.key === CUR_KEY) fn(); });
+      window.addEventListener(USER_EVT, fn);
+      window.addEventListener("storage", function (e) {
+        if (!e.key) return;
+        if (e.key === curKey() || e.key === USER_KEY) fn();
+      });
     }
   };
 
@@ -536,8 +600,8 @@
      sign-in (see firebase-config.js) and read here to replace the static
      placeholder markup on every page. Most app pages don't load the Firebase
      SDK, so localStorage is the shared source of truth for display. Profile
-     edits update this store (and Firebase), so the name stays consistent. */
-  var USER_KEY = "finwise:user";
+     edits update this store (and Firebase), so the name stays consistent.
+     USER_KEY is declared at the top of this file (see uid-scoping helpers). */
 
   function getStoredUser() {
     try { return JSON.parse(localStorage.getItem(USER_KEY)) || {}; }
@@ -617,17 +681,128 @@
     });
   }
 
-  // Public API for auth pages (login/signup) and the profile editor.
+  // Public API for auth pages (login/signup) and the profile editor. Both
+  // set() and clear() dispatch USER_EVT so uid-scoped stores in this tab
+  // repaint immediately when the signed-in account changes (other tabs
+  // pick it up via the native `storage` event on finwise:user).
   window.FinwiseUser = {
     get: getStoredUser,
-    set: function (patch) { var u = setStoredUser(patch); applyUserIdentity(); return u; },
+    set: function (patch) {
+      var u = setStoredUser(patch);
+      applyUserIdentity();
+      try { window.dispatchEvent(new CustomEvent(USER_EVT)); } catch (e) {}
+      return u;
+    },
     apply: applyUserIdentity,
     initials: initialsFrom,
-    clear: function () { try { localStorage.removeItem(USER_KEY); } catch (e) {} },
+    clear: function () {
+      try { localStorage.removeItem(USER_KEY); } catch (e) {}
+      try { window.dispatchEvent(new CustomEvent(USER_EVT)); } catch (e) {}
+    },
+    /* Wipe the caller-supplied uid's scoped caches from this device. Used by
+       the logout flow (with the outgoing uid) and can be called from the
+       Firebase delete-account success path. */
+    wipeCache: wipeUidCache,
   };
+
+  /* ----------------------------------------------------------------------
+     Global settings — window.FinwiseSettings
+     Small localStorage-backed preference store shared across pages. Currently
+     holds the master "Budget Alerts" switch (Settings page). When OFF, the
+     budgets engine must not raise threshold/over-budget notifications, even if
+     spending crosses a limit. Defaults to ON.
+     ---------------------------------------------------------------------- */
+  var SETTINGS_BASE = "finwise:settings";
+  var SETTINGS_EVT = "finwise:settings";
+  function settingsKey() { return scoped(SETTINGS_BASE); }
+
+  function readSettings() {
+    var k = settingsKey();
+    if (!k) return {};
+    try { return JSON.parse(localStorage.getItem(k)) || {}; }
+    catch (e) { return {}; }
+  }
+  function writeSettings(next) {
+    var k = settingsKey();
+    if (!k) return;
+    try { localStorage.setItem(k, JSON.stringify(next)); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent(SETTINGS_EVT)); } catch (e) {}
+  }
+
+  window.FinwiseSettings = {
+    /* Master budget-alerts switch. Defaults to true when never set. */
+    budgetAlertsEnabled: function () {
+      var s = readSettings();
+      return s.budgetAlerts !== false; // undefined -> true
+    },
+    setBudgetAlerts: function (on) {
+      var s = readSettings();
+      s.budgetAlerts = !!on;
+      writeSettings(s);
+      return s.budgetAlerts;
+    },
+    get: function (key) { return readSettings()[key]; },
+    set: function (key, value) { var s = readSettings(); s[key] = value; writeSettings(s); return value; },
+    onChange: function (fn) {
+      window.addEventListener(SETTINGS_EVT, fn);
+      window.addEventListener(USER_EVT, fn);
+      window.addEventListener("storage", function (e) {
+        if (!e.key) return;
+        if (e.key === settingsKey() || e.key === USER_KEY) fn();
+      });
+    }
+  };
+
+  /* ---- 10b. Logout ----
+     The sidebar "Logout" link (.nav-link--danger → login.html) must actually
+     end the session: sign out of Firebase (if the SDK is loaded on this page)
+     and clear the local user store so the auth guard sends them to login and
+     keeps them out until they sign in again. On a shared browser we also wipe
+     every uid-scoped cache belonging to the outgoing user (transactions,
+     budgets, goals, notifications, settings, currency) so the next person to
+     sign in on this device can never see the previous user's data. Backed-up
+     data on the server is untouched — the API rehydrates on the next login. */
+  function initLogout() {
+    document.querySelectorAll('.nav-link--danger[href="login.html"]').forEach(function (link) {
+      link.addEventListener("click", function (e) {
+        e.preventDefault();
+        var outgoingUid = getStoredUser().uid || null;
+        function finish() {
+          try { wipeUidCache(outgoingUid); } catch (e) {}
+          try { window.FinwiseUser && window.FinwiseUser.clear(); } catch (e) {}
+          window.location.replace("login.html");
+        }
+        // Sign out of Firebase when available; always clear local state + go.
+        if (window.auth && window.auth.signOut) {
+          window.auth.signOut().then(finish).catch(finish);
+        } else {
+          finish();
+        }
+      });
+    });
+  }
+
+  /* ---- 10. Auth guard for app pages ----
+     A visitor who opens an app page (dashboard, transactions, etc.) via a
+     shared link without a signed-in account is redirected to the Login page.
+     Auth/marketing pages are exempt. Auth state mirrors into localStorage at
+     sign-in (firebase-config.js -> persistUser), so this works on pages that
+     don't load the Firebase SDK. The .sidebar app-shell marks an app page. */
+  function guardAppPage() {
+    var page = (location.pathname.split("/").pop() || "").toLowerCase();
+    var PUBLIC = ["login.html", "signup.html", "forget-password.html",
+                  "reset-password.html", "index.html", ""];
+    if (PUBLIC.indexOf(page) !== -1) return;         // never guard public pages
+    if (!document.querySelector(".sidebar")) return; // not an app-shell page
+    var user = getStoredUser();
+    if (!user || (!user.name && !user.email)) {
+      location.replace("login.html");
+    }
+  }
 
   /* ---- init ---- */
   document.addEventListener("DOMContentLoaded", function () {
+    guardAppPage();
     markActiveNav();
     initNavDrawer();
     initDropdowns();
@@ -638,5 +813,6 @@
     initNotifications();
     applyUserIdentity();
     initCurrency();
+    initLogout();
   });
 })();

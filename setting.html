@@ -70,9 +70,9 @@
 <a class="nav-link nav-link--danger" href="login.html"><span class="material-symbols-outlined">logout</span><span>Logout</span></a>
 </nav>
 <div class="sidebar__user">
-<div class="avatar">A</div>
+<div class="avatar"><span class="material-symbols-outlined" style="font-size:20px">person</span></div>
 <div class="sidebar__user-meta">
-<p class="sidebar__user-name">Ahmed</p>
+<p class="sidebar__user-name">Account</p>
 </div>
 </div>
 </aside>
@@ -83,7 +83,7 @@
 <div class="mobile-bar">
 <button class="nav-toggle" aria-label="Open navigation"><span class="material-symbols-outlined">menu</span></button>
 <span class="mobile-bar__brand">FINWISE</span>
-<span class="material-symbols-outlined">account_circle</span>
+<a href="profile.html" class="mobile-bar__avatar avatar avatar--sm" aria-label="Profile"><span class="material-symbols-outlined" style="font-size:18px">person</span></a>
 </div>
 <!-- Desktop top bar -->
 <header class="topbar">
@@ -94,7 +94,7 @@
 <div class="topbar__actions">
 <button class="icon-btn" aria-label="Notifications"><span class="material-symbols-outlined">notifications</span><span class="icon-btn__dot"></span></button>
 <div class="topbar__divider"></div>
-<div class="topbar__user"><div class="avatar avatar--sm">A</div><span>Ahmed</span></div>
+<div class="topbar__user"><div class="avatar avatar--sm"><span class="material-symbols-outlined" style="font-size:18px">person</span></div><span>Account</span></div>
 </div>
 </header>
 
@@ -115,12 +115,12 @@
 </div>
 <div class="set-stack">
 <p class="muted" style="font-size:14px">Import transactions from a PDF bank/credit-card statement. We'll scan the text for dated amount rows and add what we can read.</p>
-<div class="dropzone-pdf" id="pdf-dropzone" role="button" tabindex="0" aria-label="Upload a PDF statement">
-<span class="material-symbols-outlined" style="font-size:32px">picture_as_pdf</span>
-<p style="font-weight:600">Click to choose a PDF statement</p>
-<p class="faint" style="font-size:12px">Text-based PDFs only · scanned images can't be read</p>
+<div class="dropzone-pdf" id="pdf-dropzone" role="button" tabindex="0" aria-label="Upload a CSV or PDF statement">
+<span class="material-symbols-outlined" style="font-size:32px">upload_file</span>
+<p style="font-weight:600">Click to choose a CSV or PDF statement</p>
+<p class="faint" style="font-size:12px">CSV recommended · text-based PDFs also supported (scanned images can't be read)</p>
 </div>
-<input type="file" id="pdf-input" accept="application/pdf,.pdf" hidden/>
+<input type="file" id="pdf-input" accept=".csv,text/csv,application/pdf,.pdf" hidden/>
 <div id="pdf-status" class="muted" style="font-size:14px" hidden></div>
 </div>
 </section>
@@ -138,7 +138,7 @@
 <p class="muted" style="font-size:14px">Notify when 80% reached</p>
 </div>
 <label class="switch">
-<input checked type="checkbox"/>
+<input type="checkbox" id="budgetAlertsToggle"/>
 <span class="slider"></span>
 </label>
 </div>
@@ -186,6 +186,15 @@
 <!-- Mobile nav scrim -->
 <div class="scrim" aria-hidden="true"></div>
 
+<!-- Bottom navigation (mobile only) -->
+<nav class="bottom-nav" aria-label="Main navigation">
+  <a href="dashboard.html" class="bottom-nav__item"><span class="material-symbols-outlined">dashboard</span><span>Home</span></a>
+  <a href="transaction.html" class="bottom-nav__item"><span class="material-symbols-outlined">receipt_long</span><span>Transactions</span></a>
+  <a href="add-transaction.html" class="bottom-nav__item bottom-nav__item--add" aria-label="Add Transaction"><span class="bottom-nav__add-btn"><span class="material-symbols-outlined">add</span></span></a>
+  <a href="budget.html" class="bottom-nav__item"><span class="material-symbols-outlined">account_balance_wallet</span><span>Budgets</span></a>
+  <a href="goals.html" class="bottom-nav__item"><span class="material-symbols-outlined">ads_click</span><span>Goals</span></a>
+</nav>
+
 <!-- ===== MODALS ===== -->
 <!-- Clear Data Modal -->
 <div class="modal-overlay" id="clearDataModal">
@@ -231,6 +240,25 @@
 <script src="assets/js/app.js"></script>
 <script>
   (function () {
+    /* ---- Budget Alerts master toggle ----
+       Reflects the persisted preference and, on change, saves it and shows a
+       confirmation. When OFF, budgets.js suppresses all threshold/over-budget
+       notifications (see FinwiseSettings + runAlerts). */
+    var alertsToggle = document.getElementById('budgetAlertsToggle');
+    if (alertsToggle && window.FinwiseSettings) {
+      alertsToggle.checked = window.FinwiseSettings.budgetAlertsEnabled();
+      alertsToggle.addEventListener('change', function () {
+        var on = alertsToggle.checked;
+        window.FinwiseSettings.setBudgetAlerts(on);
+        if (window.showToast) {
+          window.showToast(
+            on ? 'Budget alerts turned on.' : 'Budget alerts turned off.',
+            'success'
+          );
+        }
+      });
+    }
+
     /* ---- DELETE confirmation gate ---- */
     var deleteInput = document.getElementById('deleteConfirmInput');
     var deleteBtn = document.getElementById('finalDeleteBtn');
@@ -242,24 +270,18 @@
 
     function closeModal(id) { if (window.FinwiseModal) window.FinwiseModal.close(id); }
 
-    /* Remove every FINWISE key from localStorage (transactions, budgets,
-       goals, notifications, currency, seeds, etc.). */
+    /* Remove the current user's FINWISE cache (transactions, budgets, goals,
+       categories, notifications, settings, currency). Other accounts' caches
+       on the same device are left alone, since they belong to a different
+       signed-in identity. */
     function clearAllData() {
-      var keys = [];
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf('finwise') === 0) keys.push(k);
+      if (window.FinwiseUser && window.FinwiseUser.wipeCache) {
+        var uid = (window.FinwiseUser.get() || {}).uid;
+        window.FinwiseUser.wipeCache(uid);
       }
-      keys.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
-      // Re-arm the seed guards so demo budgets/goals/notifications do NOT
-      // regenerate — a true clear leaves the app empty.
-      try {
-        localStorage.setItem('finwise.budgets.seeded', '1');
-        localStorage.setItem('finwise.goals.seeded', '1');
-        localStorage.setItem('finwise:notifications-seeded', '1');
-      } catch (e) {}
       // Let any open page re-render to an empty state.
       try { window.dispatchEvent(new CustomEvent('finwise:change')); } catch (e) {}
+      try { window.dispatchEvent(new CustomEvent('finwise:user-changed')); } catch (e) {}
     }
 
     /* ---- Clear All Data ---- */
@@ -317,12 +339,121 @@
     if (dz && input) {
       dz.addEventListener('click', function () { input.click(); });
       dz.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-      input.addEventListener('change', function () { var f = this.files[0]; this.value = ''; if (f) importPdf(f); });
+      input.addEventListener('change', function () { var f = this.files[0]; this.value = ''; if (f) importFile(f); });
+    }
+
+    /* Route by file type: CSV is parsed directly (reliable), PDF goes through
+       the best-effort text extractor. */
+    function importFile(file) {
+      var isCsv = /\.csv$/i.test(file.name) || /csv/i.test(file.type);
+      if (isCsv) { importCsv(file); return; }
+      importPdf(file);
+    }
+
+    /* ---- CSV import ----
+       Accepts a header row and maps common column names (date, description,
+       amount, type, category). Amount sign or an explicit type column decides
+       income vs expense. Forgiving about column order and casing. */
+    function importCsv(file) {
+      if (!window.FinwiseStore || !FinwiseStore.add) {
+        setStatus('Storage is unavailable — please reload and try again.', 'danger'); return;
+      }
+      setStatus('Reading “' + file.name + '”…');
+      var reader = new FileReader();
+      reader.onerror = function () { setStatus('Could not read that file.', 'danger'); };
+      reader.onload = function () {
+        try {
+          var added = parseCsvAndImport(String(reader.result || ''));
+          if (added > 0) {
+            setStatus('Imported ' + added + ' transaction' + (added === 1 ? '' : 's') + ' from the CSV.', 'success');
+            if (window.showToast) window.showToast('Imported ' + added + ' transactions.', 'success');
+          } else {
+            setStatus('No transaction rows could be read. Expected columns like Date, Description, Amount.', 'danger');
+          }
+        } catch (e) {
+          console.error('[csv-import]', e);
+          setStatus('Could not parse that CSV. Please check the format.', 'danger');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /* Minimal CSV parser (handles quoted fields + commas/quotes inside them). */
+    function parseCsvRows(text) {
+      var rows = [], row = [], field = '', inQuotes = false;
+      for (var i = 0; i < text.length; i++) {
+        var c = text[i];
+        if (inQuotes) {
+          if (c === '"') {
+            if (text[i + 1] === '"') { field += '"'; i++; }
+            else inQuotes = false;
+          } else field += c;
+        } else if (c === '"') { inQuotes = true; }
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i + 1] === '\n') i++;
+          row.push(field); field = '';
+          if (row.length > 1 || row[0] !== '') rows.push(row);
+          row = [];
+        } else field += c;
+      }
+      if (field !== '' || row.length) { row.push(field); rows.push(row); }
+      return rows;
+    }
+
+    function parseCsvAndImport(text) {
+      var rows = parseCsvRows(text);
+      if (rows.length < 2) return 0; // need a header + at least one row
+      var header = rows[0].map(function (h) { return String(h || '').trim().toLowerCase(); });
+      function col() {
+        for (var a = 0; a < arguments.length; a++) {
+          var idx = header.indexOf(arguments[a]);
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      }
+      var iDate = col('date', 'transaction date', 'posted date');
+      var iDesc = col('description', 'details', 'name', 'memo', 'narration');
+      var iAmt = col('amount', 'value', 'debit/credit');
+      var iType = col('type', 'transaction type');
+      var iCat = col('category', 'categories');
+      if (iAmt === -1 && iDate === -1) return 0; // not a recognizable statement
+
+      var added = 0;
+      for (var r = 1; r < rows.length; r++) {
+        var cells = rows[r];
+        if (!cells || !cells.length) continue;
+        var rawAmt = iAmt !== -1 ? cells[iAmt] : '';
+        var num = parseFloat(String(rawAmt).replace(/[^0-9.\-]/g, ''));
+        if (isNaN(num) || !num) continue;
+
+        var typeCell = (iType !== -1 ? String(cells[iType] || '') : '').toLowerCase();
+        var isIncome;
+        if (typeCell) isIncome = /income|credit|deposit|salary|refund/.test(typeCell);
+        else isIncome = num > 0 && /credit|deposit|salary|refund|income/.test(String(cells[iDesc] || '').toLowerCase());
+        if (num < 0) isIncome = false; // negative amount is always an expense
+
+        var iso = iDate !== -1 ? normalizeDate(String(cells[iDate] || '').trim()) : null;
+        var desc = (iDesc !== -1 ? String(cells[iDesc] || '').trim() : '') || 'Imported transaction';
+        var category = (iCat !== -1 ? String(cells[iCat] || '').trim() : '') || 'Imported';
+
+        FinwiseStore.add({
+          type: isIncome ? 'income' : 'expense',
+          amount: Math.abs(num),
+          description: desc.slice(0, 80),
+          category: category,
+          payment: 'Statement',
+          date: iso || '',
+          receipt: null
+        });
+        added++;
+      }
+      return added;
     }
 
     function importPdf(file) {
       if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) {
-        setStatus('Please choose a PDF file.', 'danger'); return;
+        setStatus('Please choose a CSV or PDF file.', 'danger'); return;
       }
       if (typeof pdfjsLib === 'undefined') {
         setStatus('PDF engine failed to load. Check your connection and try again.', 'danger'); return;

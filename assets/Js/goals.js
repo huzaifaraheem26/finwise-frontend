@@ -20,9 +20,25 @@
 (function () {
   "use strict";
 
-  var KEY = "finwise.goals";
+  // Base name — the actual localStorage key is `<GOAL_BASE>:<uid>`, so User B
+  // on the same browser never sees User A's goals. keyFor() returns null when
+  // nobody is signed in, and read/write no-op in that case.
+  var GOAL_BASE = "finwise.goals";
   var EVT = "finwise:goals";
-  var SEEDED = "finwise.goals.seeded";
+  var USER_EVT = "finwise:user-changed";
+  var USER_KEY = "finwise:user";
+
+  function currentUid() {
+    try {
+      var u = JSON.parse(localStorage.getItem(USER_KEY)) || {};
+      return u.uid || null;
+    } catch (e) { return null; }
+  }
+  function scoped(base) {
+    var uid = currentUid();
+    return uid ? base + ":" + uid : null;
+  }
+  function goalKey() { return scoped(GOAL_BASE); }
 
   /* Curated goal icons (Material Symbols) so the picker stays on-theme. */
   var ICONS = [
@@ -30,31 +46,21 @@
     "favorite", "celebration", "fitness_center", "pets", "diamond", "redeem"
   ];
 
-  function seed() {
-    return [
-      { id: 1, name: "Dream Home Downpayment", target: 200000, saved: 80000, icon: "home", deadline: "2025-12-31", completedAt: null },
-      { id: 2, name: "New Sedan Fund", target: 200000, saved: 30000, icon: "directions_car", deadline: "2024-06-30", completedAt: null },
-      { id: 3, name: "Euro Summer Trip", target: 50000, saved: 14500, icon: "flight", deadline: "2024-08-31", completedAt: null }
-    ];
-  }
-
+  /* Goals start empty — the user creates their own. No seeded/demo data.
+     Storage is uid-scoped: signed-out reads return [] and writes are dropped. */
   function read() {
+    var k = goalKey();
+    if (!k) return [];
     try {
-      var raw = localStorage.getItem(KEY);
-      if (raw == null) {
-        if (!localStorage.getItem(SEEDED)) {
-          var s = seed();
-          localStorage.setItem(KEY, JSON.stringify(s));
-          localStorage.setItem(SEEDED, "1");
-          return s;
-        }
-        return [];
-      }
+      var raw = localStorage.getItem(k);
+      if (raw == null) return [];
       return JSON.parse(raw) || [];
     } catch (e) { return []; }
   }
   function write(list) {
-    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    var k = goalKey();
+    if (!k) return false;
+    try { localStorage.setItem(k, JSON.stringify(list)); }
     catch (e) { return false; }
     try { window.dispatchEvent(new CustomEvent(EVT)); } catch (e) {}
     return true;
@@ -140,6 +146,22 @@
     pct: pct,
     isComplete: isComplete
   };
+  /* One-shot legacy migration: attach any un-namespaced goals blob left by
+     an earlier build to the current user's scoped key, then drop the
+     legacy one. Also cleans up the dead `finwise.goals.seeded` flag from
+     the previous never-used seeding path. */
+  (function migrateLegacy() {
+    var uid = currentUid();
+    var legacy = localStorage.getItem(GOAL_BASE);
+    if (legacy != null) {
+      if (uid && localStorage.getItem(GOAL_BASE + ":" + uid) == null) {
+        try { localStorage.setItem(GOAL_BASE + ":" + uid, legacy); } catch (e) {}
+      }
+      try { localStorage.removeItem(GOAL_BASE); } catch (e) {}
+    }
+    try { localStorage.removeItem("finwise.goals.seeded"); } catch (e) {}
+  })();
+
   window.FinwiseGoals = Goals;
 
   /* ============================================================ Rendering */
@@ -365,7 +387,11 @@
     });
 
     window.addEventListener(EVT, render);
-    window.addEventListener("storage", function (e) { if (e.key === KEY) render(); });
+    window.addEventListener(USER_EVT, render);
+    window.addEventListener("storage", function (e) {
+      if (!e.key) return;
+      if (e.key === goalKey() || e.key === USER_KEY) render();
+    });
     if (window.FinwiseCurrency) FinwiseCurrency.onChange(render);
     render();
   });

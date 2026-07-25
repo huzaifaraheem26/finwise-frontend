@@ -27,41 +27,73 @@
 (function () {
   "use strict";
 
-  var KEY = "finwise.budgets";
+  // Base names — the actual localStorage keys are `<BASE>:<uid>`, so User B on
+  // the same browser never sees User A's budgets. When nobody is signed in,
+  // keyFor()/sentKey() return null and read/write no-op.
+  var BUDGET_BASE = "finwise.budgets";
+  var SENT_BASE = "finwise.budgetAlertsSent";
   var EVT = "finwise:budgets";
   var TX_EVT = "finwise:change";       // fired by store.js on transaction changes
-  var TX_KEY = "finwise.transactions"; // store.js localStorage key (cross-tab)
-  var SENT_KEY = "finwise.budgetAlertsSent";
+  var USER_EVT = "finwise:user-changed";
+  var USER_KEY = "finwise:user";
   var DEFAULT_THRESHOLD = 80;
 
-  /* Seeded once so the page isn't empty on first visit. `spent` here is the
-     base (manual) portion; matching transactions add on top. */
-  function seed() {
-    return [
-      { id: 1, name: "Food & Dining", limit: 45000, spent: 32400, period: "monthly", alertsEnabled: true, threshold: 80, reviewedLevel: null },
-      { id: 2, name: "Shopping",      limit: 25000, spent: 29500, period: "monthly", alertsEnabled: true, threshold: 80, reviewedLevel: null },
-      { id: 3, name: "Utilities",     limit: 35000, spent: 31150, period: "monthly", alertsEnabled: true, threshold: 80, reviewedLevel: null },
-      { id: 4, name: "Entertainment", limit: 15000, spent: 14250, period: "monthly", alertsEnabled: true, threshold: 80, reviewedLevel: null }
-    ];
+  function currentUid() {
+    try {
+      var u = JSON.parse(localStorage.getItem(USER_KEY)) || {};
+      return u.uid || null;
+    } catch (e) { return null; }
+  }
+  function scoped(base) {
+    var uid = currentUid();
+    return uid ? base + ":" + uid : null;
+  }
+  function budgetKey() { return scoped(BUDGET_BASE); }
+  function sentKey() { return scoped(SENT_BASE); }
+  function txKey() { return scoped("finwise.transactions"); }  // for storage listener
+
+  /* When the FinwiseApi service is loaded AND the backend is reachable, every
+     budget mutation is mirrored to the server (which then rebroadcasts via
+     Socket.io to other tabs). Reads still come from the localStorage cache so
+     rendering stays synchronous. On boot we hydrate the cache from the API,
+     then re-render. Offline / no-backend: localStorage-only mode. */
+  var API_READY = false;
+  function apiReady() { return API_READY && !!window.FinwiseApi; }
+  function apiCall(promise) {
+    if (!promise || typeof promise.then !== "function") return;
+    promise.then(function () {}, function (err) {
+      console.warn("[budgets] API sync failed:", err && err.message);
+    });
+  }
+  function fromApi(b) {
+    if (!b) return null;
+    return {
+      id: b.id || b._id || Date.now(),
+      name: b.category || b.name || "Budget",
+      limit: Math.abs(Number(b.amount != null ? b.amount : b.limit) || 0),
+      spent: 0,                     // computed live from transactions
+      period: b.period === "yearly" ? "yearly" : "monthly",
+      alertsEnabled: b.notifications !== false,
+      threshold: 80,                // backend has no threshold field yet
+      reviewedLevel: null
+    };
   }
 
+  /* Budgets start empty — the user creates their own. No seeded/demo data.
+     Storage is uid-scoped: signed-out reads return [] and writes are dropped. */
   function read() {
+    var k = budgetKey();
+    if (!k) return [];
     try {
-      var raw = localStorage.getItem(KEY);
-      if (raw == null) {
-        if (!localStorage.getItem(KEY + ".seeded")) {
-          var s = seed();
-          localStorage.setItem(KEY, JSON.stringify(s));
-          localStorage.setItem(KEY + ".seeded", "1");
-          return s;
-        }
-        return [];
-      }
+      var raw = localStorage.getItem(k);
+      if (raw == null) return [];
       return JSON.parse(raw) || [];
     } catch (e) { return []; }
   }
   function write(list) {
-    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    var k = budgetKey();
+    if (!k) return false;
+    try { localStorage.setItem(k, JSON.stringify(list)); }
     catch (e) { return false; }
     try { window.dispatchEvent(new CustomEvent(EVT)); } catch (e) {}
     return true;
@@ -171,7 +203,25 @@
       };
       if (!entry.name || !entry.limit) return null;
       list.push(entry);
-      return write(list) ? entry : null;
+      if (!write(list)) return null;
+      if (apiReady()) {
+        var tempId = entry.id;
+        apiCall(window.FinwiseApi.createBudget({
+          category: entry.name,
+          amount: entry.limit,
+          period: entry.period,
+          notifications: entry.alertsEnabled
+        }).then(function (res) {
+          var real = res && res.data;
+          if (!real || !real.id) return;
+          var l = read();
+          for (var i = 0; i < l.length; i++) {
+            if (String(l[i].id) === String(tempId)) { l[i].id = real.id; break; }
+          }
+          write(l);
+        }));
+      }
+      return entry;
     },
     update: function (id, patch) {
       var list = read(), found = null;
@@ -186,23 +236,112 @@
         if (patch.reviewedLevel !== undefined) b.reviewedLevel = patch.reviewedLevel;
         found = b;
       });
-      return write(list) ? found : null;
+      if (!write(list)) return null;
+      if (found && apiReady()) {
+        var body = {};
+        if (patch.name != null) body.category = String(patch.name).trim();
+        if (patch.limit != null) body.amount = Math.abs(Number(patch.limit) || 0);
+        if (patch.period != null) body.period = patch.period === "yearly" ? "yearly" : "monthly";
+        if (patch.alertsEnabled != null) body.notifications = !!patch.alertsEnabled;
+        // Only sync when there's something the backend cares about (skip
+        // client-only fields like `reviewedLevel` / `threshold`).
+        if (Object.keys(body).length) apiCall(window.FinwiseApi.updateBudget(id, body));
+      }
+      return found;
     },
     remove: function (id) {
       var list = read();
       var next = list.filter(function (b) { return String(b.id) !== String(id); });
       if (next.length === list.length) return false;
-      return write(next);
+      if (!write(next)) return false;
+      if (apiReady()) apiCall(window.FinwiseApi.deleteBudget(id));
+      return true;
     },
     spentFor: spentFor,
     level: levelFor,
     threshold: thresholdOf
   };
+  /* One-shot legacy migration: attach any un-namespaced blob left by an
+     earlier build to the current user's scoped key, then drop the legacy one. */
+  (function migrateLegacy() {
+    var uid = currentUid();
+    [BUDGET_BASE, SENT_BASE].forEach(function (base) {
+      var legacy = localStorage.getItem(base);
+      if (legacy == null) return;
+      if (uid && localStorage.getItem(base + ":" + uid) == null) {
+        try { localStorage.setItem(base + ":" + uid, legacy); } catch (e) {}
+      }
+      try { localStorage.removeItem(base); } catch (e) {}
+    });
+  })();
+
   window.FinwiseBudgets = Budgets;
 
+  /* Hydrate from the backend when available. Preserves the user's local-only
+     fields (threshold, reviewedLevel) across a refetch by merging on id. */
+  function hydrateFromApi() {
+    if (!window.FinwiseApi || !window.FinwiseApi.isReachable) return;
+    window.FinwiseApi.isReachable().then(function (ok) {
+      if (!ok) return;
+      API_READY = true;
+      window.FinwiseApi.listBudgets().then(function (res) {
+        var remote = (res.data || []).map(fromApi).filter(Boolean);
+        var local = read();
+        var localById = {};
+        local.forEach(function (b) { localById[String(b.id)] = b; });
+        var merged = remote.map(function (r) {
+          var l = localById[String(r.id)];
+          if (l) {
+            r.threshold = l.threshold != null ? l.threshold : r.threshold;
+            r.reviewedLevel = l.reviewedLevel != null ? l.reviewedLevel : null;
+            r.spent = l.spent || 0; // manual "spent so far" base is client-only
+          }
+          return r;
+        });
+        // Budgets created offline (local timestamp ids, unknown to the server):
+        // keep them AND push them up so both sides converge.
+        var remoteIds = {};
+        remote.forEach(function (r) { remoteIds[String(r.id)] = true; });
+        var remoteNames = {};
+        remote.forEach(function (r) { remoteNames[r.name.toLowerCase()] = true; });
+        local.forEach(function (l) {
+          if (remoteIds[String(l.id)]) return;
+          if (!/^\d{12,}$/.test(String(l.id))) return; // server id we no longer have — drop
+          if (remoteNames[String(l.name || "").toLowerCase()]) return; // same category already on server
+          merged.push(l);
+          apiCall(window.FinwiseApi.createBudget({
+            category: l.name, amount: l.limit, period: l.period,
+            notifications: l.alertsEnabled !== false
+          }).then(function (res) {
+            var real = res && res.data;
+            if (!real || !real.id) return;
+            var cur = read();
+            for (var i = 0; i < cur.length; i++) {
+              if (String(cur[i].id) === String(l.id)) { cur[i].id = real.id; break; }
+            }
+            write(cur);
+          }));
+        });
+        write(merged);
+      }).catch(function (err) {
+        console.warn("[budgets] hydrate failed:", err && err.message);
+      });
+    });
+  }
+  hydrateFromApi();
+
+
   /* ---- Alert dedupe -------------------------------------------------- */
-  function readSent() { try { return JSON.parse(localStorage.getItem(SENT_KEY)) || {}; } catch (e) { return {}; } }
-  function writeSent(o) { try { localStorage.setItem(SENT_KEY, JSON.stringify(o)); } catch (e) {} }
+  function readSent() {
+    var k = sentKey();
+    if (!k) return {};
+    try { return JSON.parse(localStorage.getItem(k)) || {}; } catch (e) { return {}; }
+  }
+  function writeSent(o) {
+    var k = sentKey();
+    if (!k) return;
+    try { localStorage.setItem(k, JSON.stringify(o)); } catch (e) {}
+  }
 
   /* Fire in-app alerts for a budget at a given level, once per level.
      Resets lower levels so a later breach re-alerts. */
@@ -260,8 +399,15 @@
 
     function toast(msg, type) { if (window.showToast) window.showToast(msg, type); }
 
-    /* Run alerts for every budget (dedupe makes this safe to call each render). */
+    /* Run alerts for every budget (dedupe makes this safe to call each render).
+       Honors the master Budget Alerts switch (Settings page): when the user has
+       turned it OFF, no threshold/over-budget notifications fire regardless of
+       spend or per-budget settings. */
+    function alertsMasterOn() {
+      return !window.FinwiseSettings || window.FinwiseSettings.budgetAlertsEnabled();
+    }
     function runAlerts(list) {
+      if (!alertsMasterOn()) return;
       list.forEach(function (b) {
         if (!b.alertsEnabled) return;
         fireAlerts(b, levelFor(b));
@@ -527,11 +673,12 @@
         if (spentBarEl) spentBarEl.style.width = (totalBudget > 0 ? Math.min(100, Math.round(totalSpent / totalBudget * 100)) : 0) + "%";
         if (remainingPctEl) remainingPctEl.textContent = (totalBudget > 0 ? Math.max(0, Math.round(remaining / totalBudget * 100)) : 0) + "% of total";
 
-        // Only surface alerts for budgets that have alerts ENABLED. A budget
-        // with alerts turned off is never flagged, notified, or shown here.
-        var flagged = list.filter(function (b) {
-          return b.alertsEnabled && levelFor(b) !== "ontrack";
-        });
+        // Only surface alerts for budgets that have alerts ENABLED, and only
+        // while the master Budget Alerts switch is on. A budget with alerts off
+        // — or all alerts globally off — is never flagged, notified, or shown.
+        var flagged = alertsMasterOn()
+          ? list.filter(function (b) { return b.alertsEnabled && levelFor(b) !== "ontrack"; })
+          : [];
         if (alertsWrap) {
           alertsWrap.innerHTML = flagged.length
             ? flagged.map(alertHtml).join("")
@@ -594,7 +741,13 @@
       renderPage._isPage = true;
       window.addEventListener(EVT, renderPage);
       window.addEventListener(TX_EVT, renderPage);
-      window.addEventListener("storage", function (e) { if (e.key === KEY || e.key === TX_KEY) renderPage(); });
+      window.addEventListener(USER_EVT, renderPage);
+      window.addEventListener("storage", function (e) {
+        if (!e.key) return;
+        if (e.key === budgetKey() || e.key === txKey() || e.key === USER_KEY) renderPage();
+      });
+      // Re-render when the master Budget Alerts switch is toggled elsewhere.
+      if (window.FinwiseSettings) window.FinwiseSettings.onChange(renderPage);
       renderPage();
     }
 
@@ -643,7 +796,12 @@
 
       window.addEventListener(EVT, renderDash);
       window.addEventListener(TX_EVT, renderDash);
-      window.addEventListener("storage", function (e) { if (e.key === KEY || e.key === TX_KEY) renderDash(); });
+      window.addEventListener(USER_EVT, renderDash);
+      window.addEventListener("storage", function (e) {
+        if (!e.key) return;
+        if (e.key === budgetKey() || e.key === txKey() || e.key === USER_KEY) renderDash();
+      });
+      if (window.FinwiseSettings) window.FinwiseSettings.onChange(renderDash);
       renderDash();
     }
   });

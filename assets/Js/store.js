@@ -19,10 +19,69 @@
 (function () {
   "use strict";
 
-  var KEY = "finwise.transactions";
+  // Base names — the actual localStorage key is `<BASE>:<uid>`, so User B on
+  // the same browser never sees User A's transactions. keyFor() returns null
+  // when nobody is signed in, and read/write no-op in that case.
+  var TX_BASE = "finwise.transactions";
+  var CAT_BASE = "finwise.categories";
   var EVT = "finwise:change";
+  var USER_EVT = "finwise:user-changed";  // same-tab signal from app.js
+  var USER_KEY = "finwise:user";           // global — the identity record
 
-  var BASE = { balance: 284350, income: 98200, expense: 42650, count: 47 };
+  function currentUid() {
+    try {
+      var u = JSON.parse(localStorage.getItem(USER_KEY)) || {};
+      return u.uid || null;
+    } catch (e) { return null; }
+  }
+  function scoped(base) {
+    var uid = currentUid();
+    return uid ? base + ":" + uid : null;
+  }
+  function txKey() { return scoped(TX_BASE); }
+  function catKey() { return scoped(CAT_BASE); }
+
+  /* ---- Backend integration ----------------------------------------------
+     When window.FinwiseApi is loaded AND the /api/health probe succeeds,
+     the store operates in HYBRID mode:
+       • localStorage is a warm cache — reads are still synchronous, so all
+         existing render code keeps working with no async churn.
+       • Every add/update/remove writes to the cache, then fires the matching
+         API call in the background. Socket.io then rebroadcasts the change
+         to every open tab/device (see socket.service.js).
+       • On page load we hydrate the cache from GET /transactions, then
+         re-render.
+     If the API is unreachable (offline demo, backend not deployed), the
+     store silently falls back to localStorage-only mode. Everything still
+     works — it just doesn't sync to the backend.                           */
+  var API_READY = false;
+  function apiReady() { return API_READY && !!window.FinwiseApi; }
+  /* Map an API-shaped transaction (id, category, description, date, type, amount)
+     into the local record shape used by every render function. */
+  function fromApi(t) {
+    if (!t) return null;
+    return {
+      id: t.id || t._id || Date.now(),
+      type: t.type,
+      amount: Math.abs(Number(t.amount) || 0),
+      category: t.category || "Other",
+      categoryKey: slug(t.category || "Other"),
+      description: t.description || "",
+      date: t.date ? String(t.date).slice(0, 10) : "",
+      payment: t.wallet || t.payment || "",
+      recurring: !!t.recurring,
+      receipt: t.receipt || null
+    };
+  }
+  /* Best-effort silent API call — swallows errors so mutations don't fail
+     the UI when the backend is unreachable mid-session. */
+  function apiCall(promise) {
+    if (!promise || typeof promise.then !== "function") return;
+    promise.then(function () {}, function (err) {
+      console.warn("[store] API sync failed:", err && err.message);
+    });
+  }
+
 
   /* Dashboard "Recent Transactions" list: paginated 10/page with its own
      search box. State lives here so re-renders (on add/edit/delete) preserve
@@ -127,13 +186,18 @@
   var DONUT_COLORS = ["var(--danger)", "var(--accent)", "var(--warning)", "var(--success)", "var(--text-muted)"];
 
   function read() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+    var k = txKey();
+    if (!k) return [];
+    try { return JSON.parse(localStorage.getItem(k)) || []; }
     catch (e) { return []; }
   }
   /* Returns true on success, false if persistence failed (e.g. the
-     localStorage quota was exceeded by a large receipt image). */
+     localStorage quota was exceeded by a large receipt image, or nobody is
+     signed in so there's no scoped key to write to). */
   function write(list) {
-    try { localStorage.setItem(KEY, JSON.stringify(list)); return true; }
+    var k = txKey();
+    if (!k) return false;
+    try { localStorage.setItem(k, JSON.stringify(list)); return true; }
     catch (e) { return false; }
   }
 
@@ -146,6 +210,25 @@
   function formatAmount(n) {
     // Indian grouping to match the balance card (e.g. 2,84,350).
     return Number(n).toLocaleString("en-IN");
+  }
+  /* Compact formatting for narrow screens: values up to 999 show normally;
+     above that use K/M suffixes (1,000 -> 1K, 12,500 -> 12.5K, 1,000,000 -> 1M).
+     Trailing ".0" is trimmed so 1,000 reads "1K" not "1.0K". */
+  function formatCompact(n) {
+    var v = Number(n) || 0;
+    var neg = v < 0 ? "-" : "";
+    v = Math.abs(v);
+    if (v < 1000) return neg + formatAmount(v);
+    var out, suffix;
+    if (v < 1000000) { out = v / 1000; suffix = "K"; }
+    else { out = v / 1000000; suffix = "M"; }
+    // One decimal, but drop it when it's a whole number.
+    var s = out.toFixed(1).replace(/\.0$/, "");
+    return neg + s + suffix;
+  }
+  var MOBILE_MQ = "(max-width: 768px)";
+  function isMobile() {
+    try { return window.matchMedia(MOBILE_MQ).matches; } catch (e) { return false; }
   }
   function formatDate(iso) {
     if (!iso) return "";
@@ -171,12 +254,37 @@
     },
     add: function (tx) {
       var list = read();
-      tx.id = Date.now();
+      tx.id = tx.id || Date.now();
       tx.amount = Math.abs(Number(tx.amount) || 0);
       tx.categoryKey = tx.categoryKey || slug(tx.category);
       list.push(tx);
       if (!write(list)) return null;         // quota/persist failure — signal caller
       Store.broadcast();
+      // Sync to backend if available. On success the server assigns a real
+      // Mongo _id; we swap out the temporary local id so subsequent edits
+      // hit the right document. The socket rebroadcast to other tabs uses
+      // the real id already.
+      if (apiReady()) {
+        var tempId = tx.id;
+        apiCall(window.FinwiseApi.createTransaction({
+          type: tx.type,
+          amount: tx.amount,
+          category: tx.category,
+          description: tx.description || "",
+          date: tx.date || new Date().toISOString().slice(0, 10),
+          wallet: tx.payment || "Cash",
+          recurring: !!tx.recurring
+        }).then(function (res) {
+          var real = res && res.data;
+          if (!real || !real.id) return;
+          var l = read();
+          for (var i = 0; i < l.length; i++) {
+            if (String(l[i].id) === String(tempId)) { l[i].id = real.id; break; }
+          }
+          write(l);
+          Store.broadcast();
+        }));
+      }
       return tx;
     },
     clear: function () { write([]); Store.broadcast(); },
@@ -204,6 +312,17 @@
       if (!found) return null;
       if (!write(list)) return null;
       Store.broadcast();
+      if (apiReady()) {
+        var body = {};
+        if (patch.type != null) body.type = patch.type;
+        if (patch.amount != null) body.amount = Math.abs(Number(patch.amount) || 0);
+        if (patch.description != null) body.description = patch.description;
+        if (patch.category != null) body.category = patch.category;
+        if (patch.payment != null) body.wallet = patch.payment;
+        if (patch.date != null) body.date = patch.date;
+        if (patch.recurring != null) body.recurring = !!patch.recurring;
+        apiCall(window.FinwiseApi.updateTransaction(id, body));
+      }
       return found;
     },
     /* Delete one transaction by id. Returns true if a row was removed. */
@@ -213,7 +332,70 @@
       if (next.length === list.length) return false;
       if (!write(next)) return false;
       Store.broadcast();
+      if (apiReady()) apiCall(window.FinwiseApi.deleteTransaction(id));
       return true;
+    },
+    /* Local-only mutators used by socket.service.js when the server emits
+       an update — they change the cache and (optionally) skip the broadcast
+       to avoid recursive network calls. */
+    upsertLocal: function (tx, opts) {
+      var mapped = fromApi(tx);
+      if (!mapped) return;
+      var list = read();
+      var replaced = false;
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i].id) === String(mapped.id)) { list[i] = mapped; replaced = true; break; }
+      }
+      if (!replaced) list.push(mapped);
+      write(list);
+      if (!(opts && opts.silent)) Store.broadcast();
+    },
+    removeLocal: function (id, opts) {
+      var list = read();
+      var next = list.filter(function (t) { return String(t.id) !== String(id); });
+      if (next.length === list.length) return;
+      write(next);
+      if (!(opts && opts.silent)) Store.broadcast();
+    },
+    /* Ask the server for a fresh list and replace the local cache. Local
+       transactions created while offline (timestamp ids the server doesn't
+       know) are kept and pushed up so both sides converge. */
+    refetch: function () {
+      if (!apiReady()) return Promise.resolve(false);
+      return window.FinwiseApi.listTransactions({ limit: 500 })
+        .then(function (res) {
+          var remote = (res.data || []).map(fromApi).filter(Boolean);
+          var remoteIds = {};
+          remote.forEach(function (t) { remoteIds[String(t.id)] = true; });
+          var merged = remote.slice();
+          read().forEach(function (l) {
+            if (remoteIds[String(l.id)]) return;
+            if (!/^\d{12,}$/.test(String(l.id))) return; // stale server id — drop
+            merged.push(l);
+            var tempId = l.id;
+            apiCall(window.FinwiseApi.createTransaction({
+              type: l.type, amount: l.amount, category: l.category,
+              description: l.description || "",
+              date: l.date || new Date().toISOString().slice(0, 10),
+              wallet: l.payment || "Cash", recurring: !!l.recurring
+            }).then(function (r2) {
+              var real = r2 && r2.data;
+              if (!real || !real.id) return;
+              var cur = read();
+              for (var i = 0; i < cur.length; i++) {
+                if (String(cur[i].id) === String(tempId)) { cur[i].id = real.id; break; }
+              }
+              write(cur);
+            }));
+          });
+          write(merged);
+          Store.broadcast();
+          return true;
+        })
+        .catch(function (err) {
+          console.warn("[store] refetch failed:", err && err.message);
+          return false;
+        });
     },
     /* Notify this page (and, via storage, other tabs) that data changed. */
     broadcast: function () {
@@ -221,18 +403,31 @@
     },
     summary: function () {
       var inc = 0, exp = 0, list = read();
+      var biggest = null;
       list.forEach(function (t) {
-        if (t.type === "income") inc += Math.abs(+t.amount || 0);
-        else exp += Math.abs(+t.amount || 0);
+        var amt = Math.abs(+t.amount || 0);
+        if (t.type === "income") {
+          inc += amt;
+        } else {
+          exp += amt;
+          // Track the single largest expense for the dashboard stat card.
+          if (!biggest || amt > biggest.amount) {
+            biggest = { amount: amt, category: t.category || "Other", description: t.description || "", date: t.date || "" };
+          }
+        }
       });
+      var balance = inc - exp;                 // Current Balance = Income − Expenses
+      var savingsRate = inc > 0 ? ((inc - exp) / inc) * 100 : 0;
       return {
-        addedIncome: inc,
-        addedExpense: exp,
         count: list.length,
-        income: BASE.income + inc,
-        expense: BASE.expense + exp,
-        balance: BASE.balance + inc - exp,
-        txCount: BASE.count + list.length
+        income: inc,
+        expense: exp,
+        balance: balance,
+        txCount: list.length,
+        // Derived stats — all computed from real transactions, no baseline.
+        savingsRate: savingsRate,             // ((Income − Expenses) / Income) × 100
+        biggestExpense: biggest,              // {amount, category, description, date} | null
+        netWorth: balance                     // net position from tracked activity
       };
     },
     // Expose helpers for pages that render their own rows.
@@ -298,10 +493,34 @@
     var inc = document.getElementById("db-income");
     var exp = document.getElementById("db-expense");
     var cnt = document.getElementById("db-count");
-    if (bal) bal.textContent = "PKR " + formatAmount(s.balance);
-    if (inc) inc.textContent = "PKR " + formatAmount(s.income);
-    if (exp) exp.textContent = "PKR " + formatAmount(s.expense);
+    // On mobile the balance/income/expense figures use compact K/M formatting
+    // so large amounts don't overflow their cards; desktop keeps full grouping.
+    var money = isMobile() ? formatCompact : formatAmount;
+    if (bal) bal.textContent = "PKR " + money(s.balance);
+    if (inc) inc.textContent = "PKR " + money(s.income);
+    if (exp) exp.textContent = "PKR " + money(s.expense);
     if (cnt) cnt.textContent = String(s.txCount);
+
+    // ---- Derived stat cards (all live, all from real data) ----
+    // Savings Rate = ((Income − Expenses) / Income) × 100
+    var srEl = document.getElementById("db-savings-rate");
+    if (srEl) srEl.textContent = (s.income > 0 ? Math.round(s.savingsRate) : 0) + "%";
+
+    // Biggest single expense (amount + its category).
+    var beEl = document.getElementById("db-biggest-expense");
+    var beCatEl = document.getElementById("db-biggest-expense-cat");
+    if (beEl) {
+      beEl.textContent = s.biggestExpense
+        ? "PKR " + money(s.biggestExpense.amount)
+        : "PKR 0";
+    }
+    if (beCatEl) {
+      beCatEl.textContent = s.biggestExpense ? s.biggestExpense.category : "—";
+    }
+
+    // Net Worth (net position from tracked activity).
+    var nwEl = document.getElementById("db-net-worth");
+    if (nwEl) nwEl.textContent = "PKR " + money(s.netWorth);
 
     renderRecentList();
     renderDonut();
@@ -309,28 +528,32 @@
   }
 
   /* ---- Render: Dashboard "Recent Transactions" (paginated + searchable) ----
-     store.js fully owns this list: while the user has no stored transactions
-     we leave the static demo rows in place; once they add any, we replace the
-     demo rows with their real transactions, 10 per page, filtered by the
-     dashboard search box. Re-runs on every finwise:change so it stays live. */
+     store.js fully owns this list. With no stored transactions we show the
+     empty-state row; once the user adds any, we render their real transactions,
+     10 per page, filtered by the dashboard search box. Re-runs on every
+     finwise:change so it stays live. */
   function renderRecentList() {
     var body = document.getElementById("dash-tx-body");
     if (!body) return;
 
     var all = Store.getAll();
-    var demoRows = Array.prototype.slice.call(body.querySelectorAll("tr[data-demo-row]"));
     var emptyRow = body.querySelector("tr[data-dash-empty]");
     var pager = document.getElementById("dash-tx-pagination");
 
-    // No stored transactions yet — keep the demo rows, no pager.
+    // Clear previously-injected rows up front.
+    Array.prototype.slice.call(body.querySelectorAll("tr[data-store-injected]"))
+      .forEach(function (r) { r.remove(); });
+
+    // No stored transactions yet — show the empty state, no pager.
     if (!all.length) {
-      demoRows.forEach(function (r) { r.hidden = false; });
-      if (emptyRow) emptyRow.hidden = true;
+      if (emptyRow) {
+        emptyRow.hidden = false;
+        var cell = emptyRow.querySelector("td");
+        if (cell) cell.textContent = "No transactions yet. Add one to get started.";
+      }
       if (pager) { pager.innerHTML = ""; pager.hidden = true; }
       return;
     }
-    // Have real data — hide the demo rows for good.
-    demoRows.forEach(function (r) { r.hidden = true; });
 
     // Filter by the dashboard search query (description / category / amount).
     var q = dashQuery.trim().toLowerCase();
@@ -341,12 +564,12 @@
       return terms.every(function (term) { return hay.indexOf(term) !== -1; });
     });
 
-    // Clear previously-injected rows.
-    Array.prototype.slice.call(body.querySelectorAll("tr[data-store-injected]"))
-      .forEach(function (r) { r.remove(); });
-
-    // Empty-state (search matched nothing).
-    if (emptyRow) emptyRow.hidden = matched.length !== 0;
+    // Empty-state (search matched nothing vs. no data at all).
+    if (emptyRow) {
+      emptyRow.hidden = matched.length !== 0;
+      var cell2 = emptyRow.querySelector("td");
+      if (cell2 && matched.length === 0) cell2.textContent = "No transactions match your search.";
+    }
 
     var totalPages = Math.max(1, Math.ceil(matched.length / DASH_PER_PAGE));
     if (dashPage > totalPages) dashPage = totalPages;
@@ -420,10 +643,6 @@
       var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       buckets.push({ year: d.getFullYear(), month: d.getMonth(), label: MON[d.getMonth()], income: 0, expense: 0 });
     }
-    // Fold the demo baseline into the current (newest) month so the chart is
-    // never empty and stored transactions visibly move it.
-    buckets[buckets.length - 1].income += BASE.income;
-    buckets[buckets.length - 1].expense += BASE.expense;
 
     read().forEach(function (t) {
       var amt = Math.abs(+t.amount || 0);
@@ -492,7 +711,14 @@
       byCat[name] = (byCat[name] || 0) + Math.abs(+t.amount || 0);
     });
     var cats = Object.keys(byCat).map(function (k) { return { name: k, value: byCat[k] }; });
-    if (!cats.length) return; // no stored expenses — keep the demo donut
+    if (!cats.length) {
+      // No stored expenses — render a neutral empty ring + zero total instead
+      // of leaving stale demo data on screen.
+      svg.innerHTML = '<circle cx="50" cy="50" fill="transparent" r="40" stroke="var(--surface-3)" stroke-width="12"></circle>';
+      legend.innerHTML = '<p class="muted" style="font-size:14px;text-align:center">No expenses yet</p>';
+      if (totalEl) totalEl.textContent = "PKR 0";
+      return;
+    }
 
     cats.sort(function (a, b) { return b.value - a.value; });
     // Keep the top 4, roll the rest into "Others".
@@ -537,6 +763,19 @@
   /* Re-render everything this page contains. Safe to call repeatedly. */
   function renderAll() {
     renderTxTable();
+    // Transactions page — top summary strip (Total Balance / Income / Expense).
+    // Present on transaction.html only; other pages skip via the null checks.
+    var txBal = document.getElementById("tx-total-balance");
+    var txInc = document.getElementById("tx-total-income");
+    var txExp = document.getElementById("tx-total-expense");
+    if (txBal || txInc || txExp) {
+      var s2 = Store.summary();
+      var money2 = isMobile() ? formatCompact : formatAmount;
+      if (txBal) txBal.textContent = "PKR " + money2(s2.balance);
+      if (txInc) txInc.textContent = "+PKR " + money2(s2.income);
+      if (txExp) txExp.textContent = "-PKR " + money2(s2.expense);
+    }
+
     renderDashboard();
     initDashSearch();
   }
@@ -545,9 +784,8 @@
      Shared CATEGORY store
      Custom categories created on the Add Transaction page ("Other" +
      a typed name) or on the Categories page are persisted here and
-     shared across both, live.
+     shared across both, live. Also uid-scoped (see catKey()).
      ============================================================ */
-  var CAT_KEY = "finwise.categories";
   var CAT_EVT = "finwise:categories";
 
   /* Emoji for a category name — resolved from the shared CATEGORY_RULES
@@ -557,7 +795,9 @@
   }
 
   function readCats() {
-    try { return JSON.parse(localStorage.getItem(CAT_KEY)) || []; }
+    var k = catKey();
+    if (!k) return [];
+    try { return JSON.parse(localStorage.getItem(k)) || []; }
     catch (e) { return []; }
   }
 
@@ -573,6 +813,8 @@
       if (!cat || !cat.name) return null;
       var name = String(cat.name).trim();
       if (!name) return null;
+      var k = catKey();
+      if (!k) return null;
       var list = readCats();
       if (list.some(function (c) { return c.name.toLowerCase() === name.toLowerCase(); })) return null;
       var entry = {
@@ -582,32 +824,80 @@
         emoji: (cat.emoji && String(cat.emoji).trim()) || emojiForCategory(name)
       };
       list.push(entry);
-      try { localStorage.setItem(CAT_KEY, JSON.stringify(list)); }
+      try { localStorage.setItem(k, JSON.stringify(list)); }
       catch (e) { return null; }
       try { window.dispatchEvent(new CustomEvent(CAT_EVT)); } catch (e) {}
       return entry;
     },
-    /* Subscribe to category changes — same tab (custom event) and other
-       tabs (native storage event). */
+    /* Subscribe to category changes — same tab (custom event), other
+       tabs (native storage event), and cross-user account switches. */
     onChange: function (fn) {
       window.addEventListener(CAT_EVT, fn);
-      window.addEventListener("storage", function (e) { if (e.key === CAT_KEY) fn(); });
+      window.addEventListener(USER_EVT, fn);
+      window.addEventListener("storage", function (e) {
+        if (!e.key) return;
+        if (e.key === catKey() || e.key === USER_KEY) fn();
+      });
     },
     emojiFor: emojiForCategory,
     iconFor: iconFor,
     resolve: resolveCategory
   };
 
+  /* ---- One-shot legacy migration ----
+     Earlier builds wrote to un-namespaced keys (finwise.transactions /
+     finwise.categories). Attach any leftover legacy blob to the currently
+     signed-in user's scoped key, then remove the legacy one. Runs once per
+     page load — cheap when the legacy keys aren't present. */
+  (function migrateLegacy() {
+    var uid = currentUid();
+    [TX_BASE, CAT_BASE].forEach(function (base) {
+      var legacy = localStorage.getItem(base);
+      if (legacy == null) return;
+      if (uid && localStorage.getItem(base + ":" + uid) == null) {
+        try { localStorage.setItem(base + ":" + uid, legacy); } catch (e) {}
+      }
+      try { localStorage.removeItem(base); } catch (e) {}
+    });
+  })();
+
   // Initial paint. Runs synchronously (scripts sit at end of <body>, so the
   // DOM is ready) and must happen before transactions.js caches its rows.
   renderAll();
 
+  /* ---- Boot: probe the backend, then hydrate from it if reachable --------
+     The initial paint above uses whatever's in localStorage — that keeps the
+     UI feeling instant. If the backend is up, we then swap in the authoritative
+     server list and re-render. This is fire-and-forget: any failure leaves the
+     app in localStorage-only mode, which is the intended offline fallback. */
+  if (window.FinwiseApi && window.FinwiseApi.isReachable) {
+    window.FinwiseApi.isReachable().then(function (ok) {
+      if (!ok) return;
+      API_READY = true;
+      Store.refetch();
+    });
+  }
+
   // Live updates: same-page saves fire `finwise:change`; saves in other
-  // tabs arrive via the native `storage` event.
+  // tabs arrive via the native `storage` event. When the signed-in user
+  // changes (login/logout in another tab, or same-tab logout via
+  // FinwiseUser.clear), re-render so we drop the previous user's cache
+  // and paint the new user's (or the empty state).
   window.addEventListener(EVT, renderAll);
+  window.addEventListener(USER_EVT, renderAll);
   window.addEventListener("storage", function (e) {
-    if (e.key === KEY) renderAll();
+    if (!e.key) return;
+    if (e.key === txKey() || e.key === catKey() || e.key === USER_KEY) renderAll();
   });
+
+  // Re-render the dashboard totals when the viewport crosses the mobile
+  // breakpoint, so the balance switches between full and compact formatting.
+  try {
+    var mql = window.matchMedia(MOBILE_MQ);
+    var onMq = function () { renderDashboard(); };
+    if (mql.addEventListener) mql.addEventListener("change", onMq);
+    else if (mql.addListener) mql.addListener(onMq); // older Safari
+  } catch (e) {}
 
   Store.render = renderAll;
   window.FinwiseStore = Store;
