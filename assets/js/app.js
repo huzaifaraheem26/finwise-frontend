@@ -793,21 +793,28 @@
       link.addEventListener("click", function (e) {
         e.preventDefault();
         var outgoingUid = getStoredUser().uid || null;
-        // Record the explicit logout intent BEFORE signing out. Firebase LOCAL
-        // persistence can restore the session (slow/failed signOut, or another
-        // tab), and firebase-config's onAuthStateChanged would otherwise treat
-        // that stale session as a live login and bounce back to the dashboard.
-        // The flag makes it force a hard sign-out and stay on Sign In. It's
-        // cleared the moment the user performs a real interactive sign-in.
+        // Clear local auth state SYNCHRONOUSLY, before the async signOut(). On
+        // mobile, signOut() can be slow or hang; if we waited for it to clear
+        // the identity, a user who closed the tab mid-sign-out would still have
+        // `finwise:user` on disk and get routed back to the dashboard. Doing it
+        // now guarantees the identity is gone the instant they log out.
+        //
+        // The signed-out intent flag is also set here: Firebase LOCAL
+        // persistence can later restore the session, and firebase-config's
+        // onAuthStateChanged would otherwise treat that stale session as a live
+        // login and bounce back to the dashboard. The flag makes it force a
+        // hard sign-out and stay on Sign In. It's cleared only when the user
+        // performs a real interactive sign-in.
         try { localStorage.setItem("finwise:signedout", "1"); } catch (e) {}
-        function finish() {
-          try { wipeUidCache(outgoingUid); } catch (e) {}
-          try { window.FinwiseUser && window.FinwiseUser.clear(); } catch (e) {}
-          window.location.replace("login.html");
-        }
-        // Sign out of Firebase when available; always clear local state + go.
+        try { wipeUidCache(outgoingUid); } catch (e) {}
+        try { window.FinwiseUser && window.FinwiseUser.clear(); } catch (e) {}
+
+        function finish() { window.location.replace("login.html"); }
+        // Sign out of Firebase when available; redirect regardless of outcome.
         if (window.auth && window.auth.signOut) {
           window.auth.signOut().then(finish).catch(finish);
+          // Safety net: never let a hung signOut() strand the user on the app.
+          setTimeout(finish, 1500);
         } else {
           finish();
         }

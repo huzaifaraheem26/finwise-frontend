@@ -10,3 +10,20 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Never let a browser (especially mobile Safari/Chrome) cache our app logic.
+# The JS files change without their filenames changing, so a cached copy would
+# keep running old code after a deploy — which silently breaks auth/session and
+# currency-sync fixes. Force a revalidation on every load.
+[[headers]]
+  for = "/assets/js/*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Same for the HTML entry points so routing/auth-guard changes take effect
+# immediately after a deploy.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
