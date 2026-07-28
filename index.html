@@ -14,6 +14,17 @@
      (see firebase-config.js -> persistUser), so this check works even though
      this page doesn't load the Firebase SDK. */
   (function () {
+    // Honor an explicit logout first: after signing out we set this flag and
+    // only clear it on a real interactive sign-in. It guarantees that reopening
+    // the app link post-logout lands on Sign In even if a stale identity record
+    // somehow lingers in localStorage. */
+    try {
+      if (localStorage.getItem("finwise:signedout") === "1") {
+        window.location.replace("login.html");
+        return;
+      }
+    } catch (e) {}
+
     var authed = false;
     try {
       var raw = localStorage.getItem("finwise:user");

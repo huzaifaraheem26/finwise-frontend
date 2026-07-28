@@ -211,6 +211,13 @@
 <!-- PDF export libraries (jsPDF + autoTable). Optional: exportPDF falls back to silent print if these fail to load. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Auth + backend sync: Firebase SDK, API client, and realtime socket bridge. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="assets/js/firebase-config.js"></script>
+<script src="assets/js/api.service.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="assets/js/socket.service.js"></script>
 <!-- Shared store: injects saved transactions before transactions.js caches rows -->
 <script src="assets/js/store.js"></script>
 <!-- Shared numbered pager -->

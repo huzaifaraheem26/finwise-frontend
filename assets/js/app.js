@@ -552,7 +552,33 @@
       if (k) { try { localStorage.setItem(k, code); } catch (e) {} }
       scheduleCurrencySweep();
       try { window.dispatchEvent(new CustomEvent(CUR_EVT)); } catch (e) {}
+      // Persist the choice to the backend so it follows the account to every
+      // device/session (the localStorage write above is only a per-device
+      // cache). Fire-and-forget: the UI already reflects the change locally.
+      if (window.FinwiseApi && window.FinwiseApi.updateProfile) {
+        try {
+          window.FinwiseApi.updateProfile({ currency: code }).catch(function () {});
+        } catch (e) {}
+      }
       if (window.showToast) window.showToast("Currency set to " + code, "success");
+    },
+    /* Apply a currency coming FROM the backend (hydration) — update the local
+       cache and relabel the UI, but do NOT push back to the server (avoids a
+       redundant write / feedback loop) and stay silent (no toast). */
+    setLocal: function (code) {
+      code = (code || "PKR").toUpperCase();
+      if (!CUR_SYMBOLS[code]) code = "PKR";
+      if (code === currentCurrency()) return;
+      var k = curKey();
+      if (k) { try { localStorage.setItem(k, code); } catch (e) {} }
+      // Reflect in any currency selector currently on the page.
+      document.querySelectorAll("[data-currency-select]").forEach(function (sel) {
+        Array.prototype.forEach.call(sel.options, function (opt) {
+          if ((opt.value || "").toUpperCase() === code) sel.value = opt.value;
+        });
+      });
+      scheduleCurrencySweep();
+      try { window.dispatchEvent(new CustomEvent(CUR_EVT)); } catch (e) {}
     },
     onChange: function (fn) {
       window.addEventListener(CUR_EVT, fn);
@@ -767,6 +793,13 @@
       link.addEventListener("click", function (e) {
         e.preventDefault();
         var outgoingUid = getStoredUser().uid || null;
+        // Record the explicit logout intent BEFORE signing out. Firebase LOCAL
+        // persistence can restore the session (slow/failed signOut, or another
+        // tab), and firebase-config's onAuthStateChanged would otherwise treat
+        // that stale session as a live login and bounce back to the dashboard.
+        // The flag makes it force a hard sign-out and stay on Sign In. It's
+        // cleared the moment the user performs a real interactive sign-in.
+        try { localStorage.setItem("finwise:signedout", "1"); } catch (e) {}
         function finish() {
           try { wipeUidCache(outgoingUid); } catch (e) {}
           try { window.FinwiseUser && window.FinwiseUser.clear(); } catch (e) {}
@@ -782,6 +815,37 @@
     });
   }
 
+  /* ---- 10c. Cross-device profile hydration ----
+     The signed-in user's name/email already sync across devices via Firebase
+     Auth (persistUser writes them on every sign-in). The profile PHOTO and the
+     chosen CURRENCY, though, only ever lived in this device's localStorage — so
+     a fresh laptop/mobile login would show no picture and fall back to the
+     default currency. Pull both from the backend (User.photoURL /
+     User.preferences.currency) and merge them locally so they follow the
+     account everywhere. Fire-and-forget; no-op offline. */
+  function hydrateProfileFromApi() {
+    if (!window.FinwiseApi || !window.FinwiseApi.isReachable) return;
+    window.FinwiseApi.isReachable().then(function (ok) {
+      if (!ok) return;
+      window.FinwiseApi.getProfile().then(function (res) {
+        var p = res && res.data;
+        if (!p) return;
+        // Only fill the avatar from the server when we don't already have one
+        // locally, so a just-uploaded photo isn't clobbered by an older sync.
+        var current = getStoredUser();
+        if (p.photoURL && !current.avatar && window.FinwiseUser) {
+          window.FinwiseUser.set({ avatar: p.photoURL });
+        }
+        // Currency: the server is authoritative across devices. Apply it
+        // locally (no push-back, no toast) so this device matches the account.
+        var serverCur = p.preferences && p.preferences.currency;
+        if (serverCur && window.FinwiseCurrency && window.FinwiseCurrency.setLocal) {
+          window.FinwiseCurrency.setLocal(serverCur);
+        }
+      }, function () {});
+    });
+  }
+
   /* ---- 10. Auth guard for app pages ----
      A visitor who opens an app page (dashboard, transactions, etc.) via a
      shared link without a signed-in account is redirected to the Login page.
@@ -794,6 +858,15 @@
                   "reset-password.html", "index.html", ""];
     if (PUBLIC.indexOf(page) !== -1) return;         // never guard public pages
     if (!document.querySelector(".sidebar")) return; // not an app-shell page
+    // Explicit logout wins over any lingering identity record: if the user
+    // signed out and hasn't signed back in, an app page (even a bookmarked one)
+    // must send them to Sign In rather than trusting stale localStorage.
+    try {
+      if (localStorage.getItem("finwise:signedout") === "1") {
+        location.replace("login.html");
+        return;
+      }
+    } catch (e) {}
     var user = getStoredUser();
     if (!user || (!user.name && !user.email)) {
       location.replace("login.html");
@@ -814,5 +887,6 @@
     applyUserIdentity();
     initCurrency();
     initLogout();
+    hydrateProfileFromApi();
   });
 })();

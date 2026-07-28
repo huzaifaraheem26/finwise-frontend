@@ -157,6 +157,24 @@ var firebaseConfig = {
         });
     };
 
+    /* Explicit "the user just logged out" intent flag. Firebase LOCAL
+       persistence can restore a session from IndexedDB after logout (e.g. if
+       signOut() was slow/rejected, or a second tab re-hydrated it). Without
+       this flag, onAuthStateChanged would then re-persist that stale user and
+       bounce them straight back to the dashboard — so reopening the app link
+       after logout wrongly lands on the Dashboard instead of Sign In.
+       The flag is set by app.js initLogout BEFORE signOut(), honored here to
+       force a hard sign-out and suppress the auto-redirect, and cleared the
+       moment the user performs a real interactive sign-in. */
+    var SIGNED_OUT_KEY = "finwise:signedout";
+    function isSignedOutIntent() {
+      try { return localStorage.getItem(SIGNED_OUT_KEY) === "1"; } catch (e) { return false; }
+    }
+    function clearSignedOutIntent() {
+      try { localStorage.removeItem(SIGNED_OUT_KEY); } catch (e) {}
+    }
+    window.finwiseClearSignedOutIntent = clearSignedOutIntent;
+
     // Keep the local store in sync with the live Firebase session on any page
     // that loads the SDK (covers refreshes and the profile page). On the auth
     // pages this is also the safety net that completes a mobile Google sign-in:
@@ -167,6 +185,13 @@ var firebaseConfig = {
     var suppressAuthRedirect = false; // true while email sign-up provisions + signs out
     auth.onAuthStateChanged(function (user) {
       if (!user) return;
+      // Honor an explicit logout: a lingering/restored session must NOT be
+      // treated as an active login. Force a hard sign-out and stay put so the
+      // user remains on (or is routed to) the Sign In page.
+      if (isSignedOutIntent()) {
+        try { auth.signOut(); } catch (e) {}
+        return;
+      }
       persistUser(user);
       if (onAuthPage() && !suppressAuthRedirect) {
         window.location.replace("dashboard.html");
@@ -184,6 +209,7 @@ var firebaseConfig = {
         .getRedirectResult()
         .then(function (result) {
           if (result && result.user) {
+            clearSignedOutIntent();
             persistUser(result.user);
             window.location.replace("dashboard.html");
           }
@@ -260,6 +286,7 @@ var firebaseConfig = {
       auth
         .signInWithEmailAndPassword(opts.email, opts.password)
         .then(function (cred) {
+          clearSignedOutIntent();
           persistUser(cred && cred.user);
           if (opts.onSuccess) opts.onSuccess();
           else window.location.href = "dashboard.html";
@@ -427,6 +454,7 @@ var firebaseConfig = {
       auth
         .signInWithPopup(googleProvider)
         .then(function (cred) {
+          clearSignedOutIntent();
           persistUser(cred && cred.user);
           window.location.href = "dashboard.html";
         })

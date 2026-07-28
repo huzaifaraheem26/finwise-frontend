@@ -65,6 +65,45 @@
     try { window.dispatchEvent(new CustomEvent(EVT)); } catch (e) {}
     return true;
   }
+  /* Low-level write with no change event — used by the socket-driven local
+     mutators so the caller controls when a re-render happens. */
+  function writeRaw(list) {
+    var k = goalKey();
+    if (!k) return false;
+    try { localStorage.setItem(k, JSON.stringify(list)); return true; }
+    catch (e) { return false; }
+  }
+
+  /* ---- Backend integration (mirrors store.js) ----------------------------
+     When window.FinwiseApi is loaded AND /api/health succeeds, goals operate
+     in HYBRID mode: localStorage stays a warm synchronous cache, and every
+     add/update/remove also fires the matching API call. Socket.io rebroadcasts
+     the change to the user's other devices. On boot we hydrate from GET /goals.
+     If the backend is unreachable the whole thing degrades to localStorage. */
+  var API_READY = false;
+  function apiReady() { return API_READY && !!window.FinwiseApi; }
+  function fromApi(g) {
+    if (!g) return null;
+    return {
+      id: g.id || g._id || Date.now(),
+      name: g.name || "",
+      target: Math.abs(Number(g.target) || 0),
+      saved: Math.abs(Number(g.saved) || 0),
+      icon: g.icon || "savings",
+      deadline: g.deadline ? String(g.deadline).slice(0, 10) : null,
+      completedAt: g.completedAt || null
+    };
+  }
+  function apiCall(promise) {
+    if (!promise || typeof promise.then !== "function") return;
+    promise.then(function () {}, function (err) {
+      console.warn("[goals] API sync failed:", err && err.message);
+    });
+  }
+  /* A server-assigned id is a Mongo ObjectId (24 hex chars); a local offline
+     id is a Date.now() timestamp. Used to decide which local goals still need
+     pushing up to the server during a refetch. */
+  function isTempId(id) { return /^\d{12,}$/.test(String(id)); }
 
   function escapeHtml(s) {
     return String(s == null ? "" : s)
@@ -103,7 +142,24 @@
       if (!entry.name || !entry.target) return null;
       if (isComplete(entry)) entry.completedAt = Date.now();
       list.push(entry);
-      return write(list) ? entry : null;
+      if (!write(list)) return null;
+      // Sync to backend; swap the temp id for the server's real id on success.
+      if (apiReady()) {
+        var tempId = entry.id;
+        apiCall(window.FinwiseApi.createGoal({
+          name: entry.name, target: entry.target, saved: entry.saved,
+          icon: entry.icon, deadline: entry.deadline
+        }).then(function (res) {
+          var real = res && res.data;
+          if (!real || !real.id) return;
+          var l = read();
+          for (var i = 0; i < l.length; i++) {
+            if (String(l[i].id) === String(tempId)) { l[i].id = real.id; break; }
+          }
+          write(l);
+        }));
+      }
+      return entry;
     },
     /* Add money to a goal. Records a matching expense transaction so the
        contribution leaves the available balance and appears in history.
@@ -121,6 +177,11 @@
       });
       if (!found) return null;
       if (!write(list)) return null;
+
+      // Sync the goal's new saved amount (and completion state) to the backend.
+      if (apiReady() && !isTempId(found.id)) {
+        apiCall(window.FinwiseApi.updateGoal(found.id, { saved: found.saved }));
+      }
 
       // Record the contribution as an expense transaction (deducts balance).
       if (window.FinwiseStore && FinwiseStore.add) {
@@ -160,6 +221,11 @@
       if (!found) return null;
       if (!write(list)) return null;
 
+      // Sync the corrected saved amount (and completion state) to the backend.
+      if (apiReady() && !isTempId(found.id)) {
+        apiCall(window.FinwiseApi.updateGoal(found.id, { saved: found.saved }));
+      }
+
       // Keep the available balance in sync with the correction.
       if (delta !== 0 && window.FinwiseStore && FinwiseStore.add) {
         FinwiseStore.add({
@@ -178,7 +244,67 @@
       var list = read();
       var next = list.filter(function (g) { return String(g.id) !== String(id); });
       if (next.length === list.length) return false;
-      return write(next);
+      if (!write(next)) return false;
+      if (apiReady() && !isTempId(id)) apiCall(window.FinwiseApi.deleteGoal(id));
+      return true;
+    },
+    /* Local-only mutators used by socket.service.js when the server emits a
+       goal change from another device — update the cache then broadcast so
+       the goals page re-renders, without firing a redundant API call. */
+    upsertLocal: function (g) {
+      var mapped = fromApi(g);
+      if (!mapped) return;
+      var list = read();
+      var replaced = false;
+      for (var i = 0; i < list.length; i++) {
+        if (String(list[i].id) === String(mapped.id)) { list[i] = mapped; replaced = true; break; }
+      }
+      if (!replaced) list.push(mapped);
+      write(list);
+    },
+    removeLocal: function (id) {
+      var list = read();
+      var next = list.filter(function (g) { return String(g.id) !== String(id); });
+      if (next.length === list.length) return;
+      write(next);
+    },
+    /* Pull the authoritative goal list from the server and replace the cache.
+       Local offline-created goals (temp ids) are kept and pushed up so both
+       sides converge — same strategy as store.refetch(). */
+    refetch: function () {
+      if (!apiReady()) return Promise.resolve(false);
+      return window.FinwiseApi.listGoals()
+        .then(function (res) {
+          var remote = (res.data || []).map(fromApi).filter(Boolean);
+          var remoteIds = {};
+          remote.forEach(function (g) { remoteIds[String(g.id)] = true; });
+          var merged = remote.slice();
+          read().forEach(function (l) {
+            if (remoteIds[String(l.id)]) return;
+            if (!isTempId(l.id)) return; // stale server id — drop
+            merged.push(l);
+            var tempId = l.id;
+            apiCall(window.FinwiseApi.createGoal({
+              name: l.name, target: l.target, saved: l.saved,
+              icon: l.icon, deadline: l.deadline
+            }).then(function (r2) {
+              var real = r2 && r2.data;
+              if (!real || !real.id) return;
+              var cur = read();
+              for (var i = 0; i < cur.length; i++) {
+                if (String(cur[i].id) === String(tempId)) { cur[i].id = real.id; break; }
+              }
+              write(cur);
+            }));
+          });
+          writeRaw(merged);
+          try { window.dispatchEvent(new CustomEvent(EVT)); } catch (e) {}
+          return true;
+        })
+        .catch(function (err) {
+          console.warn("[goals] refetch failed:", err && err.message);
+          return false;
+        });
     },
     icons: ICONS,
     pct: pct,
@@ -201,6 +327,16 @@
   })();
 
   window.FinwiseGoals = Goals;
+
+  /* ---- Boot: probe the backend, then hydrate from it if reachable ----
+     Fire-and-forget; on failure we stay in localStorage-only mode. */
+  if (window.FinwiseApi && window.FinwiseApi.isReachable) {
+    window.FinwiseApi.isReachable().then(function (ok) {
+      if (!ok) return;
+      API_READY = true;
+      Goals.refetch();
+    });
+  }
 
   /* ============================================================ Rendering */
   function ready(fn) {

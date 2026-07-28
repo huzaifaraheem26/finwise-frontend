@@ -29,6 +29,7 @@
 
   var TX_EVT = "finwise:change";      // matches store.js
   var BUDGET_EVT = "finwise:budgets"; // matches budgets.js
+  var GOAL_EVT = "finwise:goals";     // matches goals.js
   var socket = null;
 
   /* Broadcast a shared "something changed" so store.js / budgets.js re-render.
@@ -109,6 +110,20 @@
       socket.on("budget:updated", function (b) { broadcast("budget:updated", b); bump(BUDGET_EVT); });
       socket.on("budget:deleted", function (b) { broadcast("budget:deleted", b); bump(BUDGET_EVT); });
       socket.on("budget:progress", function (p) { broadcast("budget:progress", p); bump(BUDGET_EVT); });
+
+      // Goals — merge into the local cache then bump so goals.js re-renders.
+      socket.on("goal:created", function (g) {
+        if (window.FinwiseGoals && window.FinwiseGoals.upsertLocal) window.FinwiseGoals.upsertLocal(g);
+        broadcast("goal:created", g); bump(GOAL_EVT);
+      });
+      socket.on("goal:updated", function (g) {
+        if (window.FinwiseGoals && window.FinwiseGoals.upsertLocal) window.FinwiseGoals.upsertLocal(g);
+        broadcast("goal:updated", g); bump(GOAL_EVT);
+      });
+      socket.on("goal:deleted", function (g) {
+        if (window.FinwiseGoals && window.FinwiseGoals.removeLocal) window.FinwiseGoals.removeLocal(g && g.id);
+        broadcast("goal:deleted", g); bump(GOAL_EVT);
+      });
 
       socket.on("disconnect", function (reason) {
         // eslint-disable-next-line no-console

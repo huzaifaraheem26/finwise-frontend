@@ -31,7 +31,7 @@ var PROD_API_BASE = "https://finwise-backend-aywx.onrender.com/api";
   var host = (location.hostname || "").toLowerCase();
   var isLocal = host === "localhost" || host === "127.0.0.1" || host === "" || location.protocol === "file:";
   var API_BASE =
-    window.FINWISE_API_BASE || (isLocal ? "http://localhost:5000/api" : PROD_API_BASE);
+    window.FINWISE_API_BASE || (isLocal ? "http://localhost:5001/api" : PROD_API_BASE);
 
   /* ---- Firebase ID token acquisition ---------------------------------- */
   /**
@@ -163,6 +163,12 @@ var PROD_API_BASE = "https://finwise-backend-aywx.onrender.com/api";
     updateBudget: function (id, patch) { return put("/budgets/" + encodeURIComponent(id), patch); },
     deleteBudget: function (id) { return del("/budgets/" + encodeURIComponent(id)); },
     getBudgetAlerts: function () { return get("/budgets/alerts"); },
+
+    // ---- Goals ----
+    listGoals: function () { return get("/goals"); },
+    createGoal: function (g) { return post("/goals", g); },
+    updateGoal: function (id, patch) { return put("/goals/" + encodeURIComponent(id), patch); },
+    deleteGoal: function (id) { return del("/goals/" + encodeURIComponent(id)); },
 
     // ---- Analytics ----
     getMonthlyAnalytics: function (year, month) { return get("/analytics/monthly", { year: year, month: month }); },
